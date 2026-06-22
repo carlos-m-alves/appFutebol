@@ -68,7 +68,7 @@ function GroupCard({ group, onSelect }: { group: Group; onSelect: () => void }) 
         </div>
         <ArrowRight size={20} className="text-gray-300" />
       </div>
-      <h3 className="font-bold text-lg mb-1">{group.name}</h3>
+      <h3 className="font-bold text-lg mb-1 text-gray-900">{group.name}</h3>
       {group.description && <p className="text-sm text-gray-500 mb-3">{group.description}</p>}
       <div className="flex items-center gap-4 text-xs text-gray-400">
         <span className="flex items-center gap-1"><Users size={14} /> {memberCount} membros</span>
@@ -110,12 +110,12 @@ export function CreateGroupPage() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Grupo</label>
           <input type="text" value={name} onChange={e => setName(e.target.value)} required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Descrição (opcional)</label>
           <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
         </div>
         <button type="submit" disabled={loading}
           className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
@@ -158,7 +158,7 @@ export function JoinGroupPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1">Código de Acesso</label>
           <input type="text" value={code} onChange={e => setCode(e.target.value.toUpperCase())} required
             placeholder="EX: ABC123" maxLength={6}
-            className="w-full px-4 py-3 text-center text-xl font-mono font-bold tracking-widest border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none uppercase" />
+            className="w-full px-4 py-3 text-center text-xl font-mono font-bold tracking-widest border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none uppercase text-gray-900" />
         </div>
         <button type="submit" disabled={loading}
           className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
@@ -238,10 +238,18 @@ export function GroupSettingsPage() {
       <h1 className="text-2xl font-bold mb-6">Configurações do Grupo</h1>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-        <h2 className="font-bold text-lg mb-2">{currentGroup.name}</h2>
+        <h2 className="font-bold text-lg mb-2 text-gray-900">{currentGroup.name}</h2>
         <p className="text-sm text-gray-500 mb-1">Código: <span className="font-mono font-bold">{currentGroup.access_code}</span></p>
-        {currentGroup.description && <p className="text-sm text-gray-500">{currentGroup.description}</p>}
+        <p className="text-xs text-gray-400">
+          Criado em {new Date(currentGroup.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+        </p>
+        {currentGroup.description && <p className="text-sm text-gray-500 mt-1">{currentGroup.description}</p>}
       </div>
+
+      <Link to="/matches/new"
+        className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition shadow-sm mb-6">
+        <Plus size={18} /> Criar Partida
+      </Link>
 
       {nextMatch && (
         <div className="bg-white rounded-xl shadow-sm border border-green-200 border-2 p-6 mb-6">

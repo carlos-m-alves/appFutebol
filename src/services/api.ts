@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { sanitizeText, sanitizeOptional } from '../lib/sanitize'
 import type {
   Group, GroupMember, Match, MatchConfirmation, Team,
   MatchPlayer, MatchResult, PlayerRating, MatchAward, RecurringSchedule, Profile
@@ -6,6 +7,10 @@ import type {
 
 export const groupService = {
   async create(name: string, description: string): Promise<Group | null> {
+    const cleanName = sanitizeText(name, 100)
+    const cleanDescription = sanitizeText(description, 500)
+    if (!cleanName) throw new Error('Nome do grupo inválido')
+
     const { data: user } = await supabase.auth.getUser()
     if (!user?.user?.id) throw new Error('Usuário não autenticado')
 
@@ -21,7 +26,7 @@ export const groupService = {
 
     const { data: group, error } = await supabase
       .from('groups')
-      .insert({ name, description, access_code: code, created_by: profile.id })
+      .insert({ name: cleanName, description: cleanDescription, access_code: code, created_by: profile.id })
       .select()
       .single()
 
@@ -98,10 +103,13 @@ export const matchService = {
   },
 
   async create(data: {
-    group_id: string, match_date: string, location?: string,
+    group_id: string, match_date: string, location: string,
     schedule_id?: string, is_recurring?: boolean,
     frequency?: string, day_of_week?: number, day_of_month?: number, hour?: string
   }): Promise<Match | null> {
+    const cleanLocation = sanitizeText(data.location, 300)
+    if (!cleanLocation) throw new Error('Local inválido')
+
     const { data: user } = await supabase.auth.getUser()
     if (!user?.user?.id) throw new Error('Usuário não autenticado')
 
@@ -135,7 +143,7 @@ export const matchService = {
       .insert({
         group_id: data.group_id,
         match_date: data.match_date,
-        location: data.location,
+        location: cleanLocation,
         schedule_id: scheduleId,
         status: 'SCHEDULED',
         created_by: profile.id
@@ -154,6 +162,29 @@ export const matchService = {
       .eq('group_id', groupId)
       .order('match_date', { ascending: false })
     return data ?? []
+  },
+
+  async listWithResults(groupId: string): Promise<(Match & { results: (MatchResult & { team: Team })[]; players: MatchPlayer[] })[]> {
+    const { data: matches } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('match_date', { ascending: false })
+
+    if (!matches?.length) return []
+
+    const matchIds = matches.map(m => m.id)
+
+    const [results, players] = await Promise.all([
+      supabase.from('match_results').select('*, team:teams(*)').in('match_id', matchIds),
+      supabase.from('match_players').select('*, profile:profiles(*)').in('match_id', matchIds),
+    ])
+
+    return matches.map(m => ({
+      ...m,
+      results: (results.data ?? []).filter(r => r.match_id === m.id),
+      players: (players.data ?? []).filter(p => p.match_id === m.id)
+    }))
   },
 
   async get(matchId: string): Promise<Match | null> {
@@ -209,6 +240,14 @@ export const matchService = {
     return data ?? []
   },
 
+  async deleteTeam(teamId: string) {
+    const { error } = await supabase
+      .from('teams')
+      .delete()
+      .eq('id', teamId)
+    if (error) throw error
+  },
+
   async saveTeams(matchId: string, teams: { name: string }[]) {
     await supabase.from('teams').delete().eq('match_id', matchId)
     if (teams.length > 0) {
@@ -253,6 +292,31 @@ export const matchService = {
     if (error) throw error
   },
 
+  async addGuestPlayer(matchId: string, guestName: string, teamId?: string) {
+    const cleanName = sanitizeText(guestName, 100)
+    if (!cleanName) throw new Error('Nome do convidado inválido')
+    const { error } = await supabase
+      .from('match_players')
+      .insert({ match_id: matchId, guest_name: cleanName, team_id: teamId || null, goals: 0, assists: 0, own_goals: 0, nutmeg_given: 0, nutmeg_done: 0, no_show: false })
+    if (error) throw error
+  },
+
+  async removeMatchPlayer(playerId: string) {
+    const { error } = await supabase
+      .from('match_players')
+      .delete()
+      .eq('id', playerId)
+    if (error) throw error
+  },
+
+  async updateMatchPlayerTeam(playerId: string, teamId: string | null) {
+    const { error } = await supabase
+      .from('match_players')
+      .update({ team_id: teamId })
+      .eq('id', playerId)
+    if (error) throw error
+  },
+
   async savePlayers(matchId: string, players: {
     profile_id: string, team_id?: string, goals?: number, assists?: number,
     own_goals?: number, nutmeg_given?: number, nutmeg_done?: number, no_show?: boolean
@@ -276,6 +340,29 @@ export const matchService = {
         )
       if (error) throw error
     }
+  },
+
+  async updateGuestPlayerStats(players: {
+    id: string; team_id?: string; goals: number; assists: number; own_goals: number;
+    nutmeg_given: number; nutmeg_done: number; no_show: boolean
+  }[]) {
+    if (players.length === 0) return
+    const { error } = await supabase
+      .from('match_players')
+      .upsert(
+        players.map(p => ({
+          id: p.id,
+          team_id: p.team_id,
+          goals: p.goals ?? 0,
+          assists: p.assists ?? 0,
+          own_goals: p.own_goals ?? 0,
+          nutmeg_given: p.nutmeg_given ?? 0,
+          nutmeg_done: p.nutmeg_done ?? 0,
+          no_show: p.no_show ?? false
+        })),
+        { onConflict: 'id', ignoreDuplicates: false }
+      )
+    if (error) throw error
   },
 
   async saveResults(matchId: string, results: { team_id: string; score: number }[]) {
@@ -334,6 +421,7 @@ export const matchService = {
   },
 
   async submitRating(matchId: string, raterProfileId: string, ratedProfileId: string, rating: number, comment?: string) {
+    const cleanComment = sanitizeOptional(comment, 500)
     const { error } = await supabase
       .from('player_ratings')
       .insert({
@@ -341,7 +429,7 @@ export const matchService = {
         rater_profile_id: raterProfileId,
         rated_profile_id: ratedProfileId,
         rating,
-        comment
+        comment: cleanComment
       })
     if (error) throw error
   },
@@ -494,6 +582,18 @@ export const matchService = {
       .in('match_id', ids)
       .order('created_at', { ascending: false })
 
+    if (data && data.length > 0) {
+      const { data: results } = await supabase
+        .from('match_results')
+        .select('*, team:teams(*)')
+        .in('match_id', ids)
+      if (results) {
+        (data as any[]).forEach((entry: any) => {
+          entry.match_results = results.filter((r: any) => r.match_id === entry.match_id)
+        })
+      }
+    }
+
     return data ?? []
   }
 }
@@ -524,4 +624,21 @@ export async function getProfile(id: string): Promise<Profile | null> {
     .eq('id', id)
     .single()
   return data
+}
+
+export async function updateProfile(profileId: string, updates: { name?: string; avatar_url?: string | null }): Promise<void> {
+  const clean: typeof updates = {}
+  if (updates.name !== undefined) {
+    const n = sanitizeText(updates.name, 100)
+    if (!n) throw new Error('Nome inválido')
+    clean.name = n
+  }
+  if (updates.avatar_url !== undefined) {
+    clean.avatar_url = updates.avatar_url
+  }
+  const { error } = await supabase
+    .from('profiles')
+    .update(clean)
+    .eq('id', profileId)
+  if (error) throw error
 }

@@ -28,8 +28,8 @@ export function CreateMatchPage() {
     try {
       const match = await matchService.create({
         group_id: currentGroup.id,
-        match_date: `${matchDate}T${matchTime}:00`,
-        location: location || undefined,
+        match_date: new Date(`${matchDate}T${matchTime}:00-03:00`).toISOString(),
+        location,
         is_recurring: isRecurring,
         frequency: isRecurring ? frequency : undefined,
         day_of_week: isRecurring && frequency === 'WEEKLY' ? parseInt(dayOfWeek) : undefined,
@@ -58,20 +58,20 @@ export function CreateMatchPage() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
           <input type="date" value={matchDate} onChange={e => setMatchDate(e.target.value)} required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Horário</label>
           <input type="time" value={matchTime} onChange={e => setMatchTime(e.target.value)} required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Local</label>
-          <input type="text" value={location} onChange={e => setLocation(e.target.value)}
+          <input type="text" value={location} onChange={e => setLocation(e.target.value)} required
             placeholder="Ex: Campo da Vila"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
         </div>
 
         <div className="flex items-center gap-3">
@@ -86,7 +86,7 @@ export function CreateMatchPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Frequência</label>
               <select value={frequency} onChange={e => setFrequency(e.target.value as any)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none">
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900">
                 <option value="WEEKLY">Semanal</option>
                 <option value="BIWEEKLY">Quinzenal</option>
                 <option value="MONTHLY">Mensal</option>
@@ -98,7 +98,7 @@ export function CreateMatchPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Dia da Semana</label>
                 <select value={dayOfWeek} onChange={e => setDayOfWeek(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none">
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900">
                   <option value="0">Domingo</option>
                   <option value="1">Segunda</option>
                   <option value="2">Terça</option>
@@ -115,7 +115,7 @@ export function CreateMatchPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Dia do Mês</label>
                 <input type="number" value={dayOfMonth} onChange={e => setDayOfMonth(e.target.value)}
                   min={1} max={31}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
               </div>
             )}
           </div>

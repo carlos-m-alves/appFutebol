@@ -40,7 +40,7 @@ export interface Match {
   group_id: string
   schedule_id: string | null
   match_date: string
-  location: string | null
+  location: string
   status: 'SCHEDULED' | 'CONFIRMED' | 'IN_PROGRESS' | 'FINISHED' | 'CANCELLED'
   evaluation_open: boolean
   evaluation_closed: boolean
@@ -66,7 +66,7 @@ export interface Team {
 export interface MatchPlayer {
   id: string
   match_id: string
-  profile_id: string
+  profile_id: string | null
   team_id: string | null
   goals: number
   assists: number
@@ -75,6 +75,7 @@ export interface MatchPlayer {
   nutmeg_done: number
   no_show: boolean
   won_match: boolean | null
+  guest_name: string | null
   created_at: string
   profile?: Profile
   team?: Team
@@ -111,6 +112,22 @@ export interface MatchAward {
   top_scorer?: Profile
   top_assist?: Profile
   worst_player?: Profile
+}
+
+export interface Court {
+  id: string
+  name: string
+  address: string | null
+  latitude: number
+  longitude: number
+  phone: string | null
+  website: string | null
+  surface: string | null
+  has_lighting: boolean
+  has_rental: boolean
+  opening_hours: string | null
+  image_url: string | null
+  created_at: string
 }
 
 export interface MatchStats {

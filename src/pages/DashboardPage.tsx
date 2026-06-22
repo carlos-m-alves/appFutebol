@@ -1,233 +1,204 @@
-import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { useGroup } from '../contexts/GroupContext'
-import { matchService, getProfile, groupService } from '../services/api'
-import type { Match, MatchAward, Profile, Group } from '../types'
-import { Users, Trophy, Calendar, ArrowRight, Star, Swords } from 'lucide-react'
-import { DisplayRating } from '../components/ui/StarRating'
+import { useGroupMembers } from '../hooks/useGroups'
+import type { Group } from '../types'
+import { Users, Plus, LogIn, Swords, ChevronRight, Calendar, Trophy, Star } from 'lucide-react'
 
-function GroupCard({ group, onSelect }: { group: Group; onSelect: () => void }) {
-  const [memberCount, setMemberCount] = useState(0)
+const CARD_GRADIENTS = [
+  'from-emerald-500 to-green-700',
+  'from-blue-500 to-indigo-700',
+  'from-purple-500 to-violet-700',
+  'from-rose-500 to-pink-700',
+  'from-amber-500 to-orange-700',
+  'from-cyan-500 to-teal-700',
+]
 
-  useEffect(() => {
-    groupService.getMembers(group.id).then(m => setMemberCount(m.length))
-  }, [group.id])
+function GroupCard({ group, index }: { group: Group; index: number }) {
+  const { setCurrentGroup } = useGroup()
+  const { data: members = [] } = useGroupMembers(group.id)
+  const navigate = useNavigate()
+  const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length]
 
   return (
-    <button onClick={onSelect} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-left hover:shadow-md transition w-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-          <Users className="text-green-600" size={24} />
+    <button onClick={() => { setCurrentGroup(group); navigate('/groups/settings') }}
+      className="group relative bg-gradient-to-br from-[#151d2b] to-[#0d1420] rounded-2xl p-[1px] hover:scale-[1.02] transition-all duration-300 w-full text-left">
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="relative rounded-2xl bg-gradient-to-br from-[#151d2b] to-[#0d1420] p-5 h-full overflow-hidden">
+        {/* card header accent */}
+        <div className={`absolute -top-6 -right-6 w-20 h-20 bg-gradient-to-br ${gradient} rounded-full opacity-20 blur-xl`} />
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-yellow-500/40 to-transparent" />
+
+        <div className="flex items-start justify-between mb-3 relative">
+          <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
+            <Users className="text-white" size={18} />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-yellow-500/10 border border-yellow-500/20">
+              <Users size={10} className="text-yellow-400" />
+              <span className="text-[10px] font-bold text-yellow-400">{members.length}</span>
+            </div>
+            <ChevronRight size={16} className="text-gray-600 group-hover:text-yellow-400 transition-colors" />
+          </div>
         </div>
-        <ArrowRight size={20} className="text-gray-300" />
-      </div>
-      <h3 className="font-bold text-lg mb-1">{group.name}</h3>
-      {group.description && <p className="text-sm text-gray-500 mb-3">{group.description}</p>}
-      <div className="flex items-center gap-4 text-xs text-gray-400">
-        <span className="flex items-center gap-1"><Users size={14} /> {memberCount} membros</span>
-        <span>Código: <span className="font-mono font-bold">{group.access_code}</span></span>
+
+        <h3 className="text-white font-bold text-sm mb-1 truncate relative">{group.name}</h3>
+        {group.description && (
+          <p className="text-gray-500 text-[11px] mb-3 line-clamp-1 relative">{group.description}</p>
+        )}
+
+        <div className="flex items-center justify-between pt-3 border-t border-white/[0.06] relative">
+          <span className="text-[10px] text-gray-600 font-mono tracking-widest uppercase bg-white/[0.03] px-2 py-0.5 rounded-md">
+            {group.access_code}
+          </span>
+          <span className="text-[10px] text-gray-600 uppercase tracking-wider">
+            {members.length === 1 ? '1 membro' : `${members.length} membros`}
+          </span>
+        </div>
       </div>
     </button>
   )
 }
 
 export function DashboardPage() {
-  const { currentGroup, setCurrentGroup, groups } = useGroup()
-  const navigate = useNavigate()
-  const [stats, setStats] = useState<{ members: number; matches: number }>({ members: 0, matches: 0 })
-  const [recentMatches, setRecentMatches] = useState<(Match & { awards?: MatchAward | null })[]>([])
-  const [topPlayers, setTopPlayers] = useState<{ profile: Profile; avgRating: number }[]>([])
+  const { profile } = useAuth()
+  const { groups } = useGroup()
 
-  useEffect(() => {
-    if (!currentGroup?.id) return
-    loadDashboard()
-  }, [currentGroup?.id])
+  const initials = profile?.name
+    ?.split(' ')
+    .map(n => n.charAt(0))
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || '?'
 
-  async function loadDashboard() {
-    if (!currentGroup) return
-
-    const [members, matches] = await Promise.all([
-      matchService.getMembers(currentGroup.id),
-      matchService.list(currentGroup.id)
-    ])
-
-    setStats({ members: members.length, matches: matches.length })
-
-    const finished = matches.filter(m => m.status === 'FINISHED').slice(0, 5)
-    const withAwards = await Promise.all(
-      finished.map(async (m) => {
-        const awards = await matchService.getAwards(m.id)
-        return { ...m, awards }
-      })
-    )
-    setRecentMatches(withAwards)
-
-    const playerRatings: Map<string, { total: number; count: number }> = new Map()
-    for (const m of finished) {
-      const ratings = await matchService.getRatings(m.id)
-      for (const r of ratings) {
-        if (!playerRatings.has(r.rated_profile_id)) {
-          playerRatings.set(r.rated_profile_id, { total: 0, count: 0 })
-        }
-        const s = playerRatings.get(r.rated_profile_id)!
-        s.total += r.rating
-        s.count++
-      }
-    }
-
-    const top: { profile: Profile; avgRating: number }[] = []
-    for (const [id, s] of playerRatings) {
-      if (s.count >= 2) {
-        const prof = await getProfile(id)
-        if (prof) top.push({ profile: prof, avgRating: Math.round((s.total / s.count) * 2) / 2 })
-      }
-    }
-    setTopPlayers(top.sort((a, b) => b.avgRating - a.avgRating).slice(0, 5))
-  }
-
-  if (!currentGroup) {
-    return (
-      <div>
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Meus Grupos</h1>
-          <div className="flex gap-3">
-            <Link to="/groups/join" className="bg-white text-green-600 border-2 border-green-600 px-4 py-2 rounded-lg hover:bg-green-50 transition flex items-center gap-2">
-              <Users size={18} /> Entrar
-            </Link>
-            <Link to="/groups/new" className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2">
-              <Calendar size={18} /> Criar
-            </Link>
-          </div>
-        </div>
-
-        {groups.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-            <Swords className="mx-auto w-16 h-16 text-green-500 mb-4" />
-            <h1 className="text-2xl font-bold mb-4">Bem-vindo ao PeladaFC!</h1>
-            <p className="text-gray-600 mb-8">Crie ou entre em um grupo para começar.</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/groups/new" className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition">
-                Criar Grupo
-              </Link>
-              <Link to="/groups/join" className="bg-white text-green-600 border-2 border-green-600 px-6 py-3 rounded-lg hover:bg-green-50 transition">
-                Entrar em Grupo
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {groups.map(group => (
-              <GroupCard key={group.id} group={group}
-                onSelect={() => { setCurrentGroup(group); navigate(`/dashboard?group=${group.id}`) }} />
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
+  const memberSince = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    : ''
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
+    <div className="max-w-4xl mx-auto space-y-8">
+      {/* Player Card - FIFA style */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a2332] via-[#0f1722] to-[#0a0f18] border border-white/[0.06] shadow-[0_0_40px_rgba(0,0,0,0.4)]">
+        {/* card visual effects */}
+        <div className="absolute -top-16 -right-16 w-40 h-40 bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-3xl" />
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-yellow-500/30 to-transparent" />
+
+        {/* top badge */}
+        <div className="relative px-6 pt-5 pb-3">
+          <div className="flex items-center gap-1.5">
+            <Trophy size={12} className="text-yellow-500" />
+            <span className="text-[10px] font-bold text-yellow-500/80 uppercase tracking-[0.2em]">Jogador</span>
+          </div>
+        </div>
+
+        <div className="relative px-6 pb-6 flex items-center gap-5">
+          {/* avatar como escudo do clube */}
+          <div className="relative shrink-0">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt={profile.name}
+                className="w-20 h-20 rounded-2xl object-cover shadow-lg shadow-yellow-500/20 ring-2 ring-yellow-400/30" />
+            ) : (
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-yellow-500/20 ring-2 ring-yellow-400/30">
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent" />
+                <span className="relative">{initials}</span>
+              </div>
+            )}
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#0a0e17] border-2 border-yellow-500/30 flex items-center justify-center">
+              <Star size={10} className="text-yellow-400 fill-yellow-400" />
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <h1 className="text-white font-black text-xl tracking-tight truncate">{profile?.name}</h1>
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-gray-500 flex items-center gap-1.5">
+                <Swords size={12} className="text-yellow-500/60" />
+                Membro desde {memberSince}
+              </span>
+            </div>
+          </div>
+
+          {/* stat rating */}
+          <div className="hidden sm:flex flex-col items-center gap-1 shrink-0">
+            <div className="relative">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-white/[0.08] flex items-center justify-center">
+                <span className="text-white font-black text-xl">{groups.length}</span>
+              </div>
+            </div>
+            <span className="text-[9px] text-gray-600 uppercase tracking-[0.15em] font-bold">
+              {groups.length === 1 ? 'GRUPO' : 'GRUPOS'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Groups section header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-yellow-500/20">
+            <Users size={15} className="text-white" />
+          </div>
+          <h2 className="text-white font-black text-lg tracking-tight">Meus Grupos</h2>
+        </div>
+        <span className="text-[10px] text-gray-600 uppercase tracking-wider font-bold bg-white/[0.04] px-3 py-1 rounded-full border border-white/[0.06]">
+          {groups.length} Ativos
+        </span>
+      </div>
+
+      {groups.length === 0 ? (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a2332] via-[#0f1722] to-[#0a0f18] border border-white/[0.06] p-12 text-center shadow-[0_0_40px_rgba(0,0,0,0.4)]">
+          <div className="absolute -top-20 -right-20 w-60 h-60 bg-gradient-to-br from-yellow-500/5 to-transparent rounded-full blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-to-br from-emerald-500/5 to-transparent rounded-full blur-3xl" />
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-yellow-500/20 to-transparent" />
+
+          <div className="relative">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-white/[0.08] flex items-center justify-center mx-auto mb-5">
+              <Swords size={36} className="text-yellow-500/50" />
+            </div>
+            <h2 className="text-white font-black text-xl mb-2">Bem-vindo ao PeladaFC</h2>
+            <p className="text-gray-500 text-sm mb-8 max-w-sm mx-auto">
+              Crie um grupo ou entre em um existente para começar a organizar suas peladas.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link to="/groups/new"
+                className="bg-gradient-to-r from-yellow-500 to-amber-600 text-[#0a0e17] px-7 py-3.5 rounded-xl font-black text-sm hover:from-yellow-400 hover:to-amber-500 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/25">
+                <Plus size={18} /> Criar Grupo
+              </Link>
+              <Link to="/groups/join"
+                className="bg-white/[0.06] text-white/80 px-7 py-3.5 rounded-xl font-bold text-sm hover:bg-white/[0.10] transition-all duration-200 flex items-center justify-center gap-2 border border-white/[0.08] backdrop-blur-sm">
+                <LogIn size={18} /> Entrar em Grupo
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : (
         <div>
-          <h1 className="text-2xl font-bold">{currentGroup.name}</h1>
-          <p className="text-gray-500 text-sm">Código: <span className="font-mono font-bold">{currentGroup.access_code}</span></p>
-        </div>
-        <Link to="/matches/new" className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2">
-          <Calendar size={18} /> Nova Partida
-        </Link>
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            {groups.map((group, i) => (
+              <GroupCard key={group.id} group={group} index={i} />
+            ))}
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div className="flex items-center gap-3">
-            <Users className="text-green-500" size={28} />
-            <div>
-              <p className="text-sm text-gray-500">Membros</p>
-              <p className="text-2xl font-bold">{stats.members}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div className="flex items-center gap-3">
-            <Trophy className="text-yellow-500" size={28} />
-            <div>
-              <p className="text-sm text-gray-500">Partidas</p>
-              <p className="text-2xl font-bold">{stats.matches}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div className="flex items-center gap-3">
-            <Star className="text-purple-500" size={28} />
-            <div>
-              <p className="text-sm text-gray-500">Top Avaliado</p>
-              <p className="text-lg font-bold truncate">{topPlayers[0]?.profile.name ?? '-'}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h2 className="font-bold text-lg mb-4">Últimas Partidas</h2>
-          {recentMatches.length === 0 ? (
-            <p className="text-gray-400 text-sm">Nenhuma partida finalizada ainda.</p>
-          ) : (
-            <div className="space-y-3">
-              {recentMatches.map(m => (
-                <Link key={m.id} to={`/matches/${m.id}`}
-                  className="block p-3 rounded-lg hover:bg-gray-50 transition border border-gray-100">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{new Date(m.match_date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                      <p className="text-xs text-gray-500">{m.location || 'Local não definido'}</p>
-                    </div>
-                    <ArrowRight size={18} className="text-gray-400" />
-                  </div>
-                  {m.awards?.best_player && (
-                    <div className="mt-2 flex items-center gap-2 text-xs text-yellow-600">
-                      <Star size={14} /> Craque: {m.awards.best_player.name}
-                    </div>
-                  )}
-                </Link>
-              ))}
-            </div>
-          )}
-          {stats.matches > 5 && (
-            <Link to="/matches" className="block mt-4 text-sm text-green-600 hover:text-green-700 text-center">
-              Ver todas as partidas
+          {/* Quick actions */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link to="/groups/new"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-[#0a0e17] rounded-xl font-black text-sm hover:from-yellow-400 hover:to-amber-500 transition-all duration-200 shadow-lg shadow-yellow-500/20">
+              <Plus size={18} /> Criar Grupo
             </Link>
-          )}
+            <Link to="/groups/join"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-white/[0.06] text-white/80 rounded-xl font-bold text-sm hover:bg-white/[0.10] transition-all duration-200 border border-white/[0.08] backdrop-blur-sm">
+              <LogIn size={18} /> Entrar em Grupo
+            </Link>
+            <Link to="/matches"
+              className="flex items-center justify-center gap-2 px-4 py-3.5 bg-white/[0.03] text-gray-500 rounded-xl font-bold text-sm hover:bg-white/[0.06] hover:text-gray-300 transition-all duration-200 border border-white/[0.06]">
+              <Calendar size={18} /> Partidas
+            </Link>
+          </div>
         </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h2 className="font-bold text-lg mb-4">Top 5 Jogadores</h2>
-          {topPlayers.length === 0 ? (
-            <p className="text-gray-400 text-sm">Nenhuma avaliação ainda.</p>
-          ) : (
-            <div className="space-y-3">
-              {topPlayers.map((p, i) => (
-                <div key={p.profile.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-gray-400 w-6">#{i + 1}</span>
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-sm">
-                      {p.profile.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-sm font-medium">{p.profile.name}</span>
-                  </div>
-                  <DisplayRating value={p.avgRating} size="sm" />
-                </div>
-              ))}
-            </div>
-          )}
-          <Link to="/rankings" className="block mt-4 text-sm text-green-600 hover:text-green-700 text-center">
-            Ver ranking completo
-          </Link>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
-
-

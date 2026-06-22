@@ -4,7 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { GroupProvider } from './contexts/GroupContext'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { Layout } from './components/layout/Layout'
-import { LoginPage, RegisterPage, ForgotPasswordPage } from './pages/auth/AuthPages'
+import { LoginPage, RegisterPage, ForgotPasswordPage, AuthCallbackPage } from './pages/auth/AuthPages'
 import { DashboardPage } from './pages/DashboardPage'
 import { GroupsListPage, CreateGroupPage, JoinGroupPage, GroupSettingsPage } from './pages/groups/GroupPages'
 import { MatchesListPage } from './pages/matches/MatchesListPage'
@@ -13,6 +13,8 @@ import { MatchDetailPage } from './pages/matches/MatchDetailPage'
 import { VotePage } from './pages/matches/VotePage'
 import { HallPage } from './pages/hall/HallPage'
 import { RankingsPage } from './pages/rankings/RankingsPage'
+import { ProfilePage } from './pages/profile/ProfilePage'
+import { MapPage } from './pages/map/MapPage'
 
 const queryClient = new QueryClient()
 
@@ -26,7 +28,7 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/auth/callback" element={<LoginPage />} />
+              <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/" element={<GroupsListPage />} />
@@ -41,6 +43,8 @@ export default function App() {
                 <Route path="/matches/:id/vote" element={<VotePage />} />
                 <Route path="/hall" element={<HallPage />} />
                 <Route path="/rankings" element={<RankingsPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/mapa" element={<MapPage />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
