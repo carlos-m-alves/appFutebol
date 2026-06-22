@@ -9,9 +9,11 @@ lerna-debug.log*
 
 node_modules
 dist
-.env
+.env*
 dist-ssr
 *.local
+OAuth_google.txt
+img/
 
 # Editor directories and files
 .vscode/*

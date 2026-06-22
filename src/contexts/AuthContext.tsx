@@ -8,7 +8,8 @@ interface AuthContextType {
   profile: Profile | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
-  signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>
+  signUp: (email: string, password: string, name: string, avatar_url?: string) => Promise<{ error: string | null }>
+  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: string | null }>
 }
@@ -50,13 +51,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null }
   }
 
-  async function signUp(email: string, password: string, name: string) {
+  async function signUp(email: string, password: string, name: string, avatar_url?: string) {
+    const metadata: Record<string, string> = { name }
+    if (avatar_url) metadata.avatar_url = avatar_url
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } }
+      options: { data: metadata }
     })
     return { error: error?.message ?? null }
+  }
+
+  async function signInWithGoogle() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` }
+    })
+    if (error) throw error
   }
 
   async function signOut() {
@@ -72,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, resetPassword }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signInWithGoogle, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   )
