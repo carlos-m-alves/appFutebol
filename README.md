@@ -1,73 +1,83 @@
-# React + TypeScript + Vite
+# PeladaFC ⚽
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+App para organizar peladas de futebol: criação de grupos, partidas, votação de jogadores, hall da fama e rankings.
 
-Currently, two official plugins are available:
+## Funcionalidades
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Autenticação** — email/senha e Google OAuth via Supabase
+- **Grupos** — criar, entrar por código, convidar membros
+- **Partidas** — agendar, confirmar presença, montar times, registrar resultados
+- **Avaliações** — votar em jogadores (1 a 5 estrelas) após cada partida
+- **Hall da Fama** — histórico de premiações (melhor jogador, artilheiro, etc.)
+- **Rankings** — estatísticas por jogador e por grupo
+- **Mapa de Quadras** — localização de quadras próximas
 
-## React Compiler
+## Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS 4
+- **Backend:** Supabase (Auth, PostgreSQL, Storage)
+- **Estado:** TanStack React Query
+- **Roteamento:** React Router v7
+- **Ícones:** Lucide React
+- **Testes:** Vitest + Testing Library (126 testes)
 
-## Expanding the ESLint configuration
+## Pré-requisitos
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js 20+
+- Conta no [Supabase](https://supabase.com)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Configuração
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. Clone o repositório
+2. Copie `.env.example` para `.env` e preencha:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+   ```env
+   VITE_SUPABASE_URL=sua_url
+   VITE_SUPABASE_ANON_KEY=sua_chave_anon
+   ```
+
+3. Instale as dependências:
+
+   ```bash
+   npm install
+   ```
+
+4. Inicie o servidor de desenvolvimento:
+
+   ```bash
+   npm run dev
+   ```
+
+## Scripts
+
+| Comando               | Descrição                |
+| --------------------- | ------------------------ |
+| `npm run dev`         | Servidor de desenvolvimento |
+| `npm run build`       | Build de produção        |
+| `npm run preview`     | Preview do build         |
+| `npm run lint`        | ESLint                   |
+| `npm test`            | Rodar testes             |
+| `npm run test:watch`  | Testes em modo watch     |
+| `npm run test:coverage` | Cobertura de testes    |
+
+## Estrutura
+
+```
+src/
+├── components/      # Componentes UI (StarRating, ConfirmModal, Header, etc.)
+├── contexts/        # AuthContext, GroupContext
+├── hooks/           # React Query hooks (useMatches, useGroups, useDashboard)
+├── lib/             # Utilitários (supabase client, sanitize, constants)
+├── pages/           # Páginas (Dashboard, Matches, Groups, Hall, Rankings, etc.)
+├── services/        # API services (matchService, groupService, storage)
+├── types/           # TypeScript interfaces
+└── test/            # Setup e utilitários de teste
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Deploy
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Conecte o repositório ao [Vercel](https://vercel.com) ou [Netlify](https://netlify.com) e configure as variáveis de ambiente `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Licença
+
+MIT
