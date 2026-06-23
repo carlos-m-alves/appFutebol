@@ -99,7 +99,13 @@ export function MatchDetailPage() {
             )}
             {isAdmin && match.status === 'SCHEDULED' && (
               <>
-                <button onClick={() => id && updateStatus({ matchId: id, status: 'IN_PROGRESS' })} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm">
+                <button onClick={async () => {
+                  if (!id) return
+                  if (teams.length < 2) { alert('É necessário ter pelo menos 2 times para iniciar a partida.'); return }
+                  const teamsWithPlayers = teams.filter(t => players.some(p => p.team_id === t.id))
+                  if (teamsWithPlayers.length < 2) { alert('Cada time precisa ter pelo menos 1 jogador.'); return }
+                  updateStatus({ matchId: id, status: 'IN_PROGRESS' })
+                }} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm">
                   Iniciar Partida
                 </button>
                 <button onClick={async () => { if (confirm('Cancelar esta partida?')) { if (id) updateStatus({ matchId: id, status: 'CANCELLED' }) } }}

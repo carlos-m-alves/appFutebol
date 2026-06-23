@@ -66,11 +66,11 @@ function GroupCard({ group, onSelect }: { group: Group; onSelect: () => void }) 
         <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
           <Users className="text-green-600" size={24} />
         </div>
-        <ArrowRight size={20} className="text-gray-300" />
+        <ArrowRight size={20} className="text-gray-400" />
       </div>
       <h3 className="font-bold text-lg mb-1 text-gray-900">{group.name}</h3>
-      {group.description && <p className="text-sm text-gray-500 mb-3">{group.description}</p>}
-      <div className="flex items-center gap-4 text-xs text-gray-400">
+      {group.description && <p className="text-sm text-gray-600 mb-3">{group.description}</p>}
+      <div className="flex items-center gap-4 text-xs text-gray-500">
         <span className="flex items-center gap-1"><Users size={14} /> {memberCount} membros</span>
         <span>Código: <span className="font-mono font-bold">{group.access_code}</span></span>
       </div>
@@ -211,6 +211,14 @@ export function GroupSettingsPage() {
     } catch { alert('Erro ao promover membro') }
   }
 
+  async function handleDemote(memberId: string) {
+    if (!confirm('Remover cargo de administrador deste membro?')) return
+    try {
+      await groupService.demoteFromAdmin(currentGroup!.id, memberId)
+      await loadMembers()
+    } catch { alert('Erro ao rebaixar membro') }
+  }
+
   async function handleLeave() {
     if (!profile || !currentGroup) return
     if (!confirm('Tem certeza que deseja sair do grupo?')) return
@@ -278,9 +286,9 @@ export function GroupSettingsPage() {
           <Trophy size={20} className="text-yellow-500" /> Partidas Realizadas ({finishedMatches.length})
         </h2>
         {loadingMatches ? (
-          <p className="text-sm text-gray-400">Carregando...</p>
+          <p className="text-sm text-gray-500">Carregando...</p>
         ) : finishedMatches.length === 0 ? (
-          <p className="text-sm text-gray-400">Nenhuma partida realizada ainda.</p>
+          <p className="text-sm text-gray-500">Nenhuma partida realizada ainda.</p>
         ) : (
           <div className="space-y-2">
             {finishedMatches.map(m => (
@@ -290,13 +298,13 @@ export function GroupSettingsPage() {
                   <p className="text-sm font-medium">
                     {new Date(m.match_date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </p>
-                  {m.location && <p className="text-xs text-gray-400">{m.location}</p>}
+                  {m.location && <p className="text-xs text-gray-500">{m.location}</p>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[m.status]}`}>
                     {MATCH_STATUS[m.status as keyof typeof MATCH_STATUS]}
                   </span>
-                  <ChevronRight size={16} className="text-gray-300" />
+                  <ChevronRight size={16} className="text-gray-400" />
                 </div>
               </Link>
             ))}
@@ -309,21 +317,26 @@ export function GroupSettingsPage() {
         <div className="space-y-3">
           {members.map(m => (
             <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold">
-                  {m.profile?.name?.charAt(0).toUpperCase() || '?'}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold">
+                    {m.profile?.name?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{m.profile?.name}</p>
+                    <p className="text-xs text-gray-500">{m.role === 'ADMIN' ? 'Administrador' : 'Membro'}</p>
+                  </div>
+                  {m.role === 'ADMIN' && <Crown size={16} className="text-yellow-500" />}
                 </div>
-                <div>
-                  <p className="text-sm font-medium">{m.profile?.name}</p>
-                  <p className="text-xs text-gray-400">{m.role === 'ADMIN' ? 'Administrador' : 'Membro'}</p>
-                </div>
-                {m.role === 'ADMIN' && <Crown size={16} className="text-yellow-500" />}
-              </div>
               {currentGroupRole === 'ADMIN' && m.profile_id !== profile?.id && (
                 <div className="flex gap-2">
-                  {m.role === 'MEMBER' && (
+                  {m.role === 'MEMBER' ? (
                     <button onClick={() => handlePromote(m.profile_id)}
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Promover a admin">
+                      <Shield size={18} />
+                    </button>
+                  ) : (
+                    <button onClick={() => handleDemote(m.profile_id)}
+                      className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition" title="Rebaixar para membro">
                       <Shield size={18} />
                     </button>
                   )}

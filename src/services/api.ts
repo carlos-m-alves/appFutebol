@@ -90,6 +90,15 @@ export const groupService = {
       .eq('group_id', groupId)
       .eq('profile_id', profileId)
     if (error) throw error
+  },
+
+  async demoteFromAdmin(groupId: string, profileId: string) {
+    const { error } = await supabase
+      .from('group_members')
+      .update({ role: 'MEMBER' })
+      .eq('group_id', groupId)
+      .eq('profile_id', profileId)
+    if (error) throw error
   }
 }
 
