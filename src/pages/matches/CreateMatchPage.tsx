@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
 import { matchService } from '../../services/api'
+import { FifaErrorScreen } from '../../components/ui/FifaErrorScreen'
 
 export function CreateMatchPage() {
   const { profile } = useAuth()
@@ -52,7 +53,14 @@ export function CreateMatchPage() {
     <div className="max-w-lg mx-auto">
       <h1 className="text-2xl font-bold mb-6">Nova Partida</h1>
 
-      {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
+      <FifaErrorScreen
+        open={!!error}
+        title="Erro ao Criar Partida"
+        message={error || ''}
+        onDismiss={() => setError(null)}
+        actionLabel="Tentar Novamente"
+        onAction={() => setError(null)}
+      />
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
         <div>
