@@ -15,6 +15,7 @@ export function MatchesListPage() {
       const group = groups.find(g => g.id === selectedGroupId)
       if (group) setCurrentGroup(group)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGroupId])
 
   function handleGroupChange(groupId: string) {

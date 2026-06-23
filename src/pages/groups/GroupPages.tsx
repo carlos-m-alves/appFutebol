@@ -96,7 +96,7 @@ export function CreateGroupPage() {
         await refreshGroups()
         navigate('/dashboard')
       }
-    } catch (err) {
+    } catch {
       setError('Erro ao criar grupo')
     }
     setLoading(false)
@@ -179,6 +179,7 @@ export function GroupSettingsPage() {
 
   useEffect(() => {
     if (currentGroup) { loadMembers(); loadMatches() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentGroup])
 
   async function loadMembers() {
@@ -200,14 +201,14 @@ export function GroupSettingsPage() {
     try {
       await groupService.removeMember(currentGroup!.id, memberId)
       await loadMembers()
-    } catch (e) { alert('Erro ao remover membro') }
+    } catch { alert('Erro ao remover membro') }
   }
 
   async function handlePromote(memberId: string) {
     try {
       await groupService.promoteToAdmin(currentGroup!.id, memberId)
       await loadMembers()
-    } catch (e) { alert('Erro ao promover membro') }
+    } catch { alert('Erro ao promover membro') }
   }
 
   async function handleLeave() {
@@ -217,7 +218,7 @@ export function GroupSettingsPage() {
       await groupService.leave(currentGroup.id, profile.id)
       await refreshGroups()
       navigate('/groups')
-    } catch (e) { alert('Erro ao sair do grupo') }
+    } catch { alert('Erro ao sair do grupo') }
   }
 
   const statusColors: Record<string, string> = {

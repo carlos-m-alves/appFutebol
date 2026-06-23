@@ -2,6 +2,7 @@ export function sanitizeText(value: string, maxLength = 500): string {
   return value
     .trim()
     .replace(/<[^>]*>/g, '')
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
     .slice(0, maxLength)
 }

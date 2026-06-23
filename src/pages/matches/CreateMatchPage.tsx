@@ -40,7 +40,7 @@ export function CreateMatchPage() {
       if (match) {
         navigate(`/matches/${match.id}`)
       }
-    } catch (err) {
+    } catch {
       setError('Erro ao criar partida')
     }
     setLoading(false)

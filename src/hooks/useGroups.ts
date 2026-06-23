@@ -1,7 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { groupService, matchService, getProfile } from '../services/api'
 import { queryKeys } from './queryKeys'
-import type { GroupMember } from '../types'
 
 export function useGroupMembers(groupId: string | undefined) {
   return useQuery({

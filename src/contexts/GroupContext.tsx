@@ -22,8 +22,12 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (profile) refreshGroups()
-    else setLoading(false)
+    if (profile) {
+      refreshGroups()
+    } else {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile])
 
   useEffect(() => {
