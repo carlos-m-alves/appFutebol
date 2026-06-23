@@ -11,10 +11,6 @@ export function HallPage() {
   const [selectedGroupId, setSelectedGroupId] = useState(currentGroup?.id || '')
   const [selectedYear, setSelectedYear] = useState<string>('')
 
-  useEffect(() => {
-    if (selectedGroupId) loadHall()
-  }, [selectedGroupId, selectedYear])
-
   async function loadHall() {
     if (!selectedGroupId) return
     setLoading(true)
@@ -24,6 +20,11 @@ export function HallPage() {
     setHallData(data)
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (selectedGroupId) loadHall()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGroupId, selectedYear])
 
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i)
 

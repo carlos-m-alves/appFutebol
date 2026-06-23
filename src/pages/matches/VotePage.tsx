@@ -57,6 +57,7 @@ export function VotePage() {
     if (firstUnratedIndex >= 0) {
       setCurrentIndex(firstUnratedIndex)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players.length, myExistingRatings.length])
 
   const currentPlayer = players[currentIndex]

@@ -23,10 +23,6 @@ export function RankingsPage() {
   const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState<SortOption['key']>('goals')
 
-  useEffect(() => {
-    if (currentGroup) loadStats()
-  }, [currentGroup])
-
   async function loadStats() {
     if (!currentGroup) return
     setLoading(true)
@@ -34,6 +30,11 @@ export function RankingsPage() {
     setStats(data)
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (currentGroup) loadStats()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentGroup])
 
   if (!currentGroup) return <div className="text-center py-8 text-gray-400">Selecione um grupo primeiro.</div>
 

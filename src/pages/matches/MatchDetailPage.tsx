@@ -39,6 +39,7 @@ export function MatchDetailPage() {
           .then(({ data }) => { if (data) setCurrentGroup(data) })
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match?.group_id])
 
   const userAllVoted = useMemo(() => {
@@ -101,7 +102,7 @@ export function MatchDetailPage() {
                 <button onClick={() => id && updateStatus({ matchId: id, status: 'IN_PROGRESS' })} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm">
                   Iniciar Partida
                 </button>
-                <button onClick={async () => { if (confirm('Cancelar esta partida?')) id && updateStatus({ matchId: id, status: 'CANCELLED' }) }}
+                <button onClick={async () => { if (confirm('Cancelar esta partida?')) { if (id) updateStatus({ matchId: id, status: 'CANCELLED' }) } }}
                   className="bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition text-sm">
                   Cancelar
                 </button>
@@ -778,6 +779,7 @@ function MatchResultsPanel({ teams, results, players }: { teams: Team[]; results
   )
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function VotingPanel({ matchId, profileId, players }: {
   matchId: string; profileId: string; players: MatchPlayer[]
 }) {

@@ -219,7 +219,6 @@ export function useSaveMatchResults() {
 }
 
 export function useUpdateGuestPlayerStats() {
-  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (players: Parameters<typeof matchService.updateGuestPlayerStats>[0]) =>
       matchService.updateGuestPlayerStats(players),
@@ -269,7 +268,7 @@ export function useCreateTeam() {
 export function useDeleteTeam() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ matchId, teamId }: { matchId: string; teamId: string }) =>
+    mutationFn: ({ teamId }: { matchId: string; teamId: string }) =>
       matchService.deleteTeam(teamId),
     onSuccess: (_, { matchId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.matches.teams(matchId) })
