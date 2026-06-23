@@ -249,7 +249,7 @@ export function GroupSettingsPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
         <h2 className="font-bold text-lg mb-2 text-gray-900">{currentGroup.name}</h2>
         <p className="text-sm text-gray-500 mb-1">Código: <span className="font-mono font-bold">{currentGroup.access_code}</span></p>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-500">
           Criado em {new Date(currentGroup.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
         </p>
         {currentGroup.description && <p className="text-sm text-gray-500 mt-1">{currentGroup.description}</p>}
