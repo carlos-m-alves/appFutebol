@@ -8,6 +8,7 @@ import type { Team, MatchPlayer, MatchResult, MatchAward, PlayerRating } from '.
 import { MATCH_STATUS } from '../../lib/constants'
 import { StarRating, DisplayRating } from '../../components/ui/StarRating'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
+import { FifaErrorScreen } from '../../components/ui/FifaErrorScreen'
 import { Calendar, MapPin, Users, Trophy, Star, Swords, Award, ThumbsDown, Goal, UserPlus, Check, Plus, Trash2 } from 'lucide-react'
 
 export function MatchDetailPage() {
@@ -28,6 +29,8 @@ export function MatchDetailPage() {
   const { mutateAsync: updateStatus } = useUpdateMatchStatus()
   const { mutateAsync: confirmAttendance } = useMatchConfirmAttendance()
   const { mutateAsync: calculateAwards } = useCalculateAwards()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [startError, setStartError] = useState<string | null>(null)
 
   useEffect(() => {
     if (match && !currentGroup) {
@@ -101,9 +104,9 @@ export function MatchDetailPage() {
               <>
                 <button onClick={async () => {
                   if (!id) return
-                  if (teams.length < 2) { alert('É necessário ter pelo menos 2 times para iniciar a partida.'); return }
+                  if (teams.length < 2) { setStartError('É necessário ter pelo menos 2 times para iniciar a partida.'); return }
                   const teamsWithPlayers = teams.filter(t => players.some(p => p.team_id === t.id))
-                  if (teamsWithPlayers.length < 2) { alert('Cada time precisa ter pelo menos 1 jogador.'); return }
+                  if (teamsWithPlayers.length < 2) { setStartError('Cada time precisa ter pelo menos 1 jogador.'); return }
                   updateStatus({ matchId: id, status: 'IN_PROGRESS' })
                 }} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm">
                   Iniciar Partida
@@ -735,6 +738,15 @@ function ManagePlayersPanel({ matchId, players, teams, isAdmin }: {
         setDeletingTeam(null)
       }}
       onCancel={() => setDeletingTeam(null)}
+    />
+
+    <FifaErrorScreen
+      open={!!startError}
+      title="Erro ao Iniciar Partida"
+      message={startError || ''}
+      onDismiss={() => setStartError(null)}
+      actionLabel="OK"
+      onAction={() => setStartError(null)}
     />
     </>
   )

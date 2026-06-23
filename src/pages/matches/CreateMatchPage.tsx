@@ -41,8 +41,8 @@ export function CreateMatchPage() {
       if (match) {
         navigate(`/matches/${match.id}`)
       }
-    } catch {
-      setError('Erro ao criar partida')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar partida')
     }
     setLoading(false)
   }
