@@ -70,6 +70,7 @@ export function MatchDetailPage() {
   }
 
   return (
+    <>
     <div className="max-w-4xl mx-auto">
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -207,6 +208,16 @@ export function MatchDetailPage() {
         </div>
       )}
     </div>
+
+    <FifaErrorScreen
+      open={!!startError}
+      title="Erro ao Iniciar Partida"
+      message={startError || ''}
+      onDismiss={() => setStartError(null)}
+      actionLabel="OK"
+      onAction={() => setStartError(null)}
+    />
+    </>
   )
 }
 
@@ -740,14 +751,6 @@ function ManagePlayersPanel({ matchId, players, teams, isAdmin }: {
       onCancel={() => setDeletingTeam(null)}
     />
 
-    <FifaErrorScreen
-      open={!!startError}
-      title="Erro ao Iniciar Partida"
-      message={startError || ''}
-      onDismiss={() => setStartError(null)}
-      actionLabel="OK"
-      onAction={() => setStartError(null)}
-    />
     </>
   )
 }

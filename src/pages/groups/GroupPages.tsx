@@ -6,6 +6,7 @@ import { groupService, matchService } from '../../services/api'
 import type { Group, GroupMember, Match } from '../../types'
 import { Plus, LogIn, Users, ArrowRight, Trash2, Crown, Shield, Calendar, MapPin, Trophy, ChevronRight } from 'lucide-react'
 import { MATCH_STATUS } from '../../lib/constants'
+import { ConfirmModal } from '../../components/ui/ConfirmModal'
 
 export function GroupsListPage() {
   const { groups, loading } = useGroup()
@@ -176,6 +177,8 @@ export function GroupSettingsPage() {
   const [members, setMembers] = useState<GroupMember[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [loadingMatches, setLoadingMatches] = useState(true)
+  const [removingMember, setRemovingMember] = useState<string | null>(null)
+  const [demotingMember, setDemotingMember] = useState<string | null>(null)
 
   useEffect(() => {
     if (currentGroup) { loadMembers(); loadMatches() }
@@ -197,7 +200,6 @@ export function GroupSettingsPage() {
   }
 
   async function handleRemoveMember(memberId: string) {
-    if (!confirm('Remover este membro do grupo?')) return
     try {
       await groupService.removeMember(currentGroup!.id, memberId)
       await loadMembers()
@@ -212,7 +214,6 @@ export function GroupSettingsPage() {
   }
 
   async function handleDemote(memberId: string) {
-    if (!confirm('Remover cargo de administrador deste membro?')) return
     try {
       await groupService.demoteFromAdmin(currentGroup!.id, memberId)
       await loadMembers()
@@ -268,21 +269,21 @@ export function GroupSettingsPage() {
           <Link to={`/matches/${nextMatch.id}`} className="block p-4 rounded-lg bg-green-50 hover:bg-green-100 transition">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium">
+                <p className="font-medium text-gray-900">
                   {new Date(nextMatch.match_date).toLocaleDateString('pt-BR', {
                     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
                   })}
                 </p>
-                {nextMatch.location && <p className="text-sm text-gray-500 mt-1"><MapPin size={14} className="inline" /> {nextMatch.location}</p>}
+                {nextMatch.location && <p className="text-sm text-gray-600 mt-1"><MapPin size={14} className="inline" /> {nextMatch.location}</p>}
               </div>
-              <ChevronRight size={20} className="text-gray-400" />
+              <ChevronRight size={20} className="text-gray-500" />
             </div>
           </Link>
         </div>
       )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-        <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
+        <h2 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900">
           <Trophy size={20} className="text-yellow-500" /> Partidas Realizadas ({finishedMatches.length})
         </h2>
         {loadingMatches ? (
@@ -295,7 +296,7 @@ export function GroupSettingsPage() {
               <Link key={m.id} to={`/matches/${m.id}`}
                 className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition">
                 <div>
-                  <p className="text-sm font-medium">
+                  <p className="text-sm font-medium text-gray-900">
                     {new Date(m.match_date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </p>
                   {m.location && <p className="text-xs text-gray-500">{m.location}</p>}
@@ -304,7 +305,7 @@ export function GroupSettingsPage() {
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[m.status]}`}>
                     {MATCH_STATUS[m.status as keyof typeof MATCH_STATUS]}
                   </span>
-                  <ChevronRight size={16} className="text-gray-400" />
+                  <ChevronRight size={16} className="text-gray-500" />
                 </div>
               </Link>
             ))}
@@ -313,7 +314,7 @@ export function GroupSettingsPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="font-bold text-lg mb-4">Membros ({members.length})</h2>
+        <h2 className="font-bold text-lg mb-4 text-gray-900">Membros ({members.length})</h2>
         <div className="space-y-3">
           {members.map(m => (
             <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
@@ -323,7 +324,7 @@ export function GroupSettingsPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-900">{m.profile?.name}</p>
-                    <p className="text-xs text-gray-500">{m.role === 'ADMIN' ? 'Administrador' : 'Membro'}</p>
+                    <p className="text-xs text-gray-600">{m.role === 'ADMIN' ? 'Administrador' : 'Membro'}</p>
                   </div>
                   {m.role === 'ADMIN' && <Crown size={16} className="text-yellow-500" />}
                 </div>
@@ -335,12 +336,12 @@ export function GroupSettingsPage() {
                       <Shield size={18} />
                     </button>
                   ) : (
-                    <button onClick={() => handleDemote(m.profile_id)}
+                    <button onClick={() => setDemotingMember(m.profile_id)}
                       className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition" title="Rebaixar para membro">
                       <Shield size={18} />
                     </button>
                   )}
-                  <button onClick={() => handleRemoveMember(m.profile_id)}
+                  <button onClick={() => setRemovingMember(m.profile_id)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Remover">
                     <Trash2 size={18} />
                   </button>
@@ -357,6 +358,32 @@ export function GroupSettingsPage() {
           Sair do Grupo
         </button>
       </div>
+
+      <ConfirmModal
+        open={!!demotingMember}
+        title="Remover Administrador"
+        message="Tem certeza que deseja remover o cargo de administrador deste membro?"
+        confirmLabel="Remover"
+        cancelLabel="Cancelar"
+        onConfirm={() => {
+          if (demotingMember) handleDemote(demotingMember)
+          setDemotingMember(null)
+        }}
+        onCancel={() => setDemotingMember(null)}
+      />
+
+      <ConfirmModal
+        open={!!removingMember}
+        title="Remover Membro"
+        message="Tem certeza que deseja remover este membro do grupo?"
+        confirmLabel="Remover"
+        cancelLabel="Cancelar"
+        onConfirm={() => {
+          if (removingMember) handleRemoveMember(removingMember)
+          setRemovingMember(null)
+        }}
+        onCancel={() => setRemovingMember(null)}
+      />
     </div>
   )
 }
