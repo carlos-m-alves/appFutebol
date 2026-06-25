@@ -21,7 +21,7 @@ function GroupCard({ group, index }: { group: Group; index: number }) {
   const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length]
 
   return (
-    <button onClick={() => { setCurrentGroup(group); navigate('/groups/settings') }}
+    <button onClick={() => { setCurrentGroup(group); navigate(`/groups/${group.id}`) }}
       className="group relative bg-gradient-to-br from-[#151d2b] to-[#0d1420] rounded-2xl p-[1px] hover:scale-[1.02] transition-all duration-300 w-full text-left">
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       <div className="relative rounded-2xl bg-gradient-to-br from-[#151d2b] to-[#0d1420] p-5 h-full overflow-hidden">

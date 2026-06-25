@@ -37,6 +37,7 @@ export default function App() {
                 <Route path="/groups/new" element={<CreateGroupPage />} />
                 <Route path="/groups/join" element={<JoinGroupPage />} />
                 <Route path="/groups/settings" element={<GroupSettingsPage />} />
+                <Route path="/groups/:id" element={<GroupSettingsPage />} />
                 <Route path="/matches" element={<MatchesListPage />} />
                 <Route path="/matches/new" element={<CreateMatchPage />} />
                 <Route path="/matches/:id" element={<MatchDetailPage />} />

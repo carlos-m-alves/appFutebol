@@ -158,10 +158,6 @@ export function MatchDetailPage() {
         <MatchStatsPanel match={match} players={players} teams={teams} results={results} groupMembers={groupMembers} ratings={ratings} />
       )}
 
-      {results.length > 0 && (
-        <MatchResultsPanel teams={teams} results={results} players={players} />
-      )}
-
       {canVote && !awards && (
         <div className="bg-purple-50 border border-purple-200 rounded-xl p-6 mb-6 text-center">
           <h2 className="font-bold text-lg mb-2 flex items-center justify-center gap-2">
@@ -317,15 +313,22 @@ function MatchStatsPanel({ match, players, teams, results, groupMembers, ratings
     setPlayerStats(stats)
   }, [players])
 
+  function calcScore(teamId: string): number {
+    const ownGoalsFromOthers = Object.entries(playerStats)
+      .filter(([, s]) => s.teamId !== teamId && s.teamId !== '' && !s.no_show)
+      .reduce((sum, [, s]) => sum + s.own_goals, 0)
+    const teamGoals = Object.entries(playerStats)
+      .filter(([, s]) => s.teamId === teamId && !s.no_show)
+      .reduce((sum, [, s]) => sum + s.goals, 0)
+    return teamGoals + ownGoalsFromOthers
+  }
+
   useEffect(() => {
-    const initial: Record<string, number> = {}
-    if (results.length) {
-      results.forEach(r => { initial[r.team_id] = r.score })
-    } else {
-      teams.forEach(t => { initial[t.id] = 0 })
-    }
-    setScores(initial)
-  }, [teams, results])
+    const calculated: Record<string, number> = {}
+    teams.forEach(t => { calculated[t.id] = calcScore(t.id) })
+    setScores(calculated)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerStats, teams])
 
   function updateStat(profileId: string, field: string, value: any) {
     setPlayerStats(prev => ({
@@ -338,37 +341,15 @@ function MatchStatsPanel({ match, players, teams, results, groupMembers, ratings
     if (!match) return
     setStatsError(null)
 
-    if (teams.length > 0) {
-      const missingScore = teams.some(t => scores[t.id] === undefined || scores[t.id] === null)
-      if (missingScore) {
-        setStatsError('Preencha o placar de todos os times antes de salvar.')
-        return
-      }
-    }
-
-    if (teams.length === 2) {
-      const teamA = teams[0]
-      const teamB = teams[1]
-
-      const teamAPlayers = Object.entries(playerStats).filter(([, s]) => s.teamId === teamA.id && !s.no_show)
-      const teamBPlayers = Object.entries(playerStats).filter(([, s]) => s.teamId === teamB.id && !s.no_show)
-
-      const teamAGoals = teamAPlayers.reduce((sum, [, s]) => sum + s.goals, 0)
-      const teamAOwnGoals = teamAPlayers.reduce((sum, [, s]) => sum + s.own_goals, 0)
-      const teamBGoals = teamBPlayers.reduce((sum, [, s]) => sum + s.goals, 0)
-      const teamBOwnGoals = teamBPlayers.reduce((sum, [, s]) => sum + s.own_goals, 0)
-
-      const expectedA = teamAGoals + teamBOwnGoals
-      const expectedB = teamBGoals + teamAOwnGoals
-      const actualA = scores[teamA.id] ?? 0
-      const actualB = scores[teamB.id] ?? 0
-
-      if (actualA !== expectedA || actualB !== expectedB) {
-        setStatsError(
-          `Placar inconsistente! O placar deveria ser ${teamA.name} ${expectedA} x ${expectedB} ${teamB.name} ` +
-          `(gols marcados + gols contra do adversário). Verifique os gols e gols contra dos jogadores.`
-        )
-        return
+    if (teams.length >= 2) {
+      for (const team of teams) {
+        const teamEntries = Object.entries(playerStats).filter(([, s]) => s.teamId === team.id && !s.no_show)
+        const totalGoals = teamEntries.reduce((sum, [, s]) => sum + s.goals, 0)
+        const totalAssists = teamEntries.reduce((sum, [, s]) => sum + s.assists, 0)
+        if (totalAssists > totalGoals) {
+          setStatsError(`O time ${team.name} tem ${totalAssists} assistência(s), mas fez apenas ${totalGoals} gol(ns). As assistências não podem exceder o número de gols.`)
+          return
+        }
       }
     }
 
@@ -429,174 +410,236 @@ function MatchStatsPanel({ match, players, teams, results, groupMembers, ratings
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-      <h2 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900">
-        <Trophy size={20} className="text-yellow-500" /> Estatísticas da Partida
-      </h2>
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a2332] via-[#0f1722] to-[#0a0f18] border border-white/[0.06] shadow-[0_0_40px_rgba(0,0,0,0.4)] mb-6">
+      <div className="absolute -top-16 -right-16 w-40 h-40 bg-gradient-to-br from-yellow-500/10 to-transparent rounded-full blur-3xl" />
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-yellow-500/30 to-transparent" />
 
-      {teams.length > 1 && (
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <h3 className="text-sm font-semibold text-gray-600 mb-3">Placar</h3>
-          <div className="flex items-center gap-4 flex-wrap">
-            {teams.map(team => (
-              <div key={team.id} className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-900">{team.name}</span>
-                  <input type="number" min={0} value={scores[team.id] ?? 0}
-                    onChange={e => setScores(prev => ({ ...prev, [team.id]: parseInt(e.target.value) || 0 }))}
-                    className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center outline-none focus:ring-1 focus:ring-green-500 text-gray-900" />
+      <div className="relative px-6 pt-5 pb-5">
+        <h2 className="font-black text-sm uppercase tracking-[0.15em] text-yellow-400/80 mb-6 flex items-center gap-2">
+          <Trophy size={16} /> Estatísticas da Partida
+        </h2>
+
+        {/* Placar - Auto-calculado */}
+        {teams.length > 1 && (
+          <div className="bg-white/[0.04] rounded-xl p-5 mb-6 border border-white/[0.06]">
+            <h3 className="font-black text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-4">Placar</h3>
+            <div className="flex items-center justify-center gap-6 flex-wrap">
+              {teams.map((team, idx) => (
+                <div key={team.id} className="flex items-center gap-3">
+                  {idx > 0 && <span className="text-2xl font-black text-gray-600">×</span>}
+                  <div className="flex items-center gap-3 bg-white/[0.06] rounded-xl px-5 py-3 border border-white/[0.08]">
+                    <span className="text-sm font-black text-white uppercase tracking-wider">{team.name}</span>
+                    <span className="text-2xl font-black text-yellow-400 tabular-nums">{scores[team.id] ?? 0}</span>
+                  </div>
                 </div>
-            ))}
-          </div>
-        </div>
-      )}
+              ))}
+            </div>
 
-      <div className="space-y-6">
-        {teams.map(team => {
-          const teamPlayers = allPlayers.filter(p => p.team_id === team.id)
-          if (teamPlayers.length === 0) return null
-          return (
-              <div key={team.id}>
-              <h3 className="font-semibold text-sm text-gray-600 mb-2">{team.name}</h3>
-              <div className="space-y-2">
-                {teamPlayers.map(p => (
-                  <div key={p.profile_id || p.id} className="border border-gray-200 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-xs">
-                          {p.profile?.name?.charAt(0).toUpperCase() || p.guest_name?.charAt(0).toUpperCase() || '?'}
+            {/* Goleadores */}
+            {(() => {
+              const scorersByTeam = new Map<string, { name: string; goals: number; own: boolean }[]>()
+              const allEntries = Object.entries(playerStats)
+              teams.forEach(t => scorersByTeam.set(t.id, []))
+
+              for (const [playerId, stats] of allEntries) {
+                const player = allPlayers.find(p => p.id === playerId || p.profile_id === playerId)
+                const name = player?.profile?.name || player?.guest_name || 'Jogador'
+                if (stats.goals > 0 && stats.teamId) {
+                  scorersByTeam.get(stats.teamId)?.push({ name, goals: stats.goals, own: false })
+                }
+                if (stats.own_goals > 0 && stats.teamId) {
+                  const otherTeam = teams.find(t => t.id !== stats.teamId)
+                  if (otherTeam) {
+                    scorersByTeam.get(otherTeam.id)?.push({ name, goals: stats.own_goals, own: true })
+                  }
+                }
+              }
+
+              const hasAny = [...scorersByTeam.values()].some(s => s.length > 0)
+              if (!hasAny) return null
+
+              return (
+                <div className="mt-4 pt-4 border-t border-white/[0.06]">
+                  <div className="flex items-center justify-center gap-8 flex-wrap">
+                    {teams.map(team => {
+                      const scorers = scorersByTeam.get(team.id) || []
+                      if (scorers.length === 0) return null
+                      return (
+                        <div key={team.id} className="text-center">
+                          <div className="space-y-0.5">
+                            {scorers.map((s, i) => (
+                              <p key={i} className="text-xs font-bold text-white flex items-center gap-1">
+                                {s.own && <span className="text-[9px] text-red-400 font-black uppercase tracking-wider">(g.c.)</span>}
+                                {s.name}
+                                {s.goals > 1 && <span className="text-yellow-400 font-black tabular-nums">×{s.goals}</span>}
+                              </p>
+                            ))}
+                          </div>
                         </div>
-                        <span className="text-sm font-medium text-gray-900">{p.profile?.name || p.guest_name}</span>
-                        {p.guest_name ? (
-                          <span className="text-[10px] text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded font-medium">Convidado</span>
-                        ) : playerHasVoted(p.profile_id) ? (
-                          <span className="text-[10px] text-green-700 bg-green-100 px-1.5 py-0.5 rounded font-medium">Votou</span>
-                        ) : (
-                          <span className="text-[10px] text-red-600 bg-red-100 px-1.5 py-0.5 rounded font-medium">Não votou</span>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {teams.map(team => {
+            const teamPlayers = allPlayers.filter(p => p.team_id === team.id)
+            if (teamPlayers.length === 0) return null
+            return (
+              <div key={team.id}>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-yellow-500 to-amber-600" />
+                  <h3 className="font-black text-sm uppercase tracking-[0.1em] text-white">{team.name}</h3>
+                  <span className="text-[10px] text-gray-600 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06] ml-auto">
+                    {teamPlayers.length} jogadores
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {teamPlayers.map(p => (
+                    <div key={p.profile_id || p.id}
+                      className="bg-white/[0.04] rounded-xl border border-white/[0.06] hover:bg-white/[0.08] transition-all duration-200 overflow-hidden">
+                      <div className="p-3">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 ring-2 ring-white/[0.08]">
+                              {p.profile?.avatar_url ? (
+                                <img src={p.profile.avatar_url} alt={p.profile.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center text-[#0a0e17] font-black text-xs">
+                                  {p.profile?.name?.charAt(0).toUpperCase() || p.guest_name?.charAt(0).toUpperCase() || '?'}
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-white truncate">{p.profile?.name || p.guest_name}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                {p.guest_name ? (
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">Convidado</span>
+                                ) : playerHasVoted(p.profile_id) ? (
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">Votou</span>
+                                ) : (
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">Não votou</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-red-400 cursor-pointer bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition shrink-0">
+                            <input type="checkbox" checked={playerStats[p.id]?.no_show || false}
+                              onChange={e => updateStat(p.id, 'no_show', e.target.checked)}
+                              className="w-3 h-3 text-red-500 rounded focus:ring-red-500/50 bg-white/[0.08] border-white/[0.15]" />
+                            Furão
+                          </label>
+                        </div>
+                        {!playerStats[p.id]?.no_show && (
+                          <div className="grid grid-cols-5 gap-2">
+                            {[
+                              { key: 'goals', label: 'Gols', color: 'text-yellow-400' },
+                              { key: 'assists', label: 'Assist.', color: 'text-blue-400' },
+                              { key: 'own_goals', label: 'Gol Contra', color: 'text-red-400' },
+                              { key: 'nutmeg_done', label: 'Caneta', color: 'text-purple-400' },
+                              { key: 'nutmeg_given', label: 'Levou', color: 'text-orange-400' },
+                            ].map(stat => (
+                              <div key={stat.key}>
+                                <label className={`text-[9px] font-black uppercase tracking-wider block mb-1 ${stat.color}`}>{stat.label}</label>
+                                <StatStepper value={(playerStats[p.id] as any)?.[stat.key] ?? 0}
+                                  onChange={v => updateStat(p.id, stat.key, v)} />
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                      <label className="flex items-center gap-1 text-xs text-red-600 cursor-pointer">
-                        <input type="checkbox" checked={playerStats[p.id]?.no_show || false}
-                          onChange={e => updateStat(p.id, 'no_show', e.target.checked)}
-                          className="w-3.5 h-3.5 text-red-600 rounded focus:ring-red-500" />
-                        Furão
-                      </label>
                     </div>
-                    {!playerStats[p.id]?.no_show && (
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                        <div>
-                          <label className="text-xs text-gray-500 block mb-0.5">Gols</label>
-                          <input type="number" min={0} value={playerStats[p.id]?.goals ?? 0}
-                            onChange={e => updateStat(p.id, 'goals', parseInt(e.target.value) || 0)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center text-gray-900 outline-none focus:ring-1 focus:ring-green-500" />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+          {allPlayers.filter(p => !p.team_id).length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-gray-500 to-gray-600" />
+                <h3 className="font-black text-sm uppercase tracking-[0.1em] text-gray-400">Sem time</h3>
+                <span className="text-[10px] text-gray-600 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06] ml-auto">
+                  {allPlayers.filter(p => !p.team_id).length} jogadores
+                </span>
+              </div>
+              <div className="space-y-2">
+                {allPlayers.filter(p => !p.team_id).map(p => (
+                  <div key={p.profile_id || p.id}
+                    className="bg-white/[0.04] rounded-xl border border-white/[0.06] hover:bg-white/[0.08] transition-all duration-200 overflow-hidden">
+                    <div className="p-3">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 ring-2 ring-white/[0.08]">
+                            {p.profile?.avatar_url ? (
+                              <img src={p.profile.avatar_url} alt={p.profile.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center text-[#0a0e17] font-black text-xs">
+                                {p.profile?.name?.charAt(0).toUpperCase() || p.guest_name?.charAt(0).toUpperCase() || '?'}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-white truncate">{p.profile?.name || p.guest_name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {p.guest_name ? (
+                                <span className="text-[9px] font-black uppercase tracking-wider text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">Convidado</span>
+                              ) : playerHasVoted(p.profile_id) ? (
+                                <span className="text-[9px] font-black uppercase tracking-wider text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">Votou</span>
+                              ) : (
+                                <span className="text-[9px] font-black uppercase tracking-wider text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">Não votou</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-xs text-gray-500 block mb-0.5">Assist.</label>
-                          <input type="number" min={0} value={playerStats[p.id]?.assists ?? 0}
-                            onChange={e => updateStat(p.id, 'assists', parseInt(e.target.value) || 0)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center text-gray-900 outline-none focus:ring-1 focus:ring-green-500" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500 block mb-0.5">Gol Contra</label>
-                          <input type="number" min={0} value={playerStats[p.id]?.own_goals ?? 0}
-                            onChange={e => updateStat(p.id, 'own_goals', parseInt(e.target.value) || 0)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center text-gray-900 outline-none focus:ring-1 focus:ring-green-500" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500 block mb-0.5">Meteu Caneta</label>
-                          <input type="number" min={0} value={playerStats[p.id]?.nutmeg_done ?? 0}
-                            onChange={e => updateStat(p.id, 'nutmeg_done', parseInt(e.target.value) || 0)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center text-gray-900 outline-none focus:ring-1 focus:ring-green-500" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500 block mb-0.5">Levou Caneta</label>
-                          <input type="number" min={0} value={playerStats[p.id]?.nutmeg_given ?? 0}
-                            onChange={e => updateStat(p.id, 'nutmeg_given', parseInt(e.target.value) || 0)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center text-gray-900 outline-none focus:ring-1 focus:ring-green-500" />
-                        </div>
+                        <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-red-400 cursor-pointer bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition shrink-0">
+                          <input type="checkbox" checked={playerStats[p.id]?.no_show || false}
+                            onChange={e => updateStat(p.id, 'no_show', e.target.checked)}
+                            className="w-3 h-3 text-red-500 rounded focus:ring-red-500/50 bg-white/[0.08] border-white/[0.15]" />
+                          Furão
+                        </label>
                       </div>
-                    )}
+                      {!playerStats[p.id]?.no_show && (
+                        <div className="grid grid-cols-5 gap-2">
+                          {[
+                            { key: 'goals', label: 'Gols', color: 'text-yellow-400' },
+                            { key: 'assists', label: 'Assist.', color: 'text-blue-400' },
+                            { key: 'own_goals', label: 'Gol Contra', color: 'text-red-400' },
+                            { key: 'nutmeg_done', label: 'Caneta', color: 'text-purple-400' },
+                            { key: 'nutmeg_given', label: 'Levou', color: 'text-orange-400' },
+                          ].map(stat => (
+                            <div key={stat.key}>
+                              <label className={`text-[9px] font-black uppercase tracking-wider block mb-1 ${stat.color}`}>{stat.label}</label>
+                              <input type="number" min={0} value={(playerStats[p.id] as any)?.[stat.key] ?? 0}
+                                onChange={e => updateStat(p.id, stat.key, parseInt(e.target.value) || 0)}
+                                className="w-full px-1.5 py-1.5 bg-white/[0.06] border border-white/[0.10] rounded-lg text-xs font-bold text-white text-center outline-none focus:ring-1 focus:ring-yellow-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
-          )
-        })}
-        {allPlayers.filter(p => !p.team_id).length > 0 && (
-          <div>
-            <h3 className="font-semibold text-sm text-gray-400 mb-2">Sem time</h3>
-            <div className="space-y-2">
-              {allPlayers.filter(p => !p.team_id).map(p => (
-                  <div key={p.profile_id || p.id} className="border border-gray-200 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-xs">
-                          {p.profile?.name?.charAt(0).toUpperCase() || p.guest_name?.charAt(0).toUpperCase() || '?'}
-                        </div>
-                        <span className="text-sm font-medium text-gray-900">{p.profile?.name || p.guest_name}</span>
-                        {p.guest_name ? (
-                          <span className="text-[10px] text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded font-medium">Convidado</span>
-                        ) : playerHasVoted(p.profile_id) ? (
-                          <span className="text-[10px] text-green-700 bg-green-100 px-1.5 py-0.5 rounded font-medium">Votou</span>
-                        ) : (
-                          <span className="text-[10px] text-red-600 bg-red-100 px-1.5 py-0.5 rounded font-medium">Não votou</span>
-                        )}
-                      </div>
-                      <label className="flex items-center gap-1 text-xs text-red-600 cursor-pointer">
-                        <input type="checkbox" checked={playerStats[p.id]?.no_show || false}
-                          onChange={e => updateStat(p.id, 'no_show', e.target.checked)}
-                          className="w-3.5 h-3.5 text-red-600 rounded focus:ring-red-500" />
-                        Furão
-                      </label>
-                    </div>
-                    {!playerStats[p.id]?.no_show && (
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                        <div>
-                          <label className="text-xs text-gray-500 block mb-0.5">Gols</label>
-                          <input type="number" min={0} value={playerStats[p.id]?.goals ?? 0}
-                            onChange={e => updateStat(p.id, 'goals', parseInt(e.target.value) || 0)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center text-gray-900 outline-none focus:ring-1 focus:ring-green-500" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500 block mb-0.5">Assist.</label>
-                          <input type="number" min={0} value={playerStats[p.id]?.assists ?? 0}
-                            onChange={e => updateStat(p.id, 'assists', parseInt(e.target.value) || 0)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center text-gray-900 outline-none focus:ring-1 focus:ring-green-500" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500 block mb-0.5">Gol Contra</label>
-                          <input type="number" min={0} value={playerStats[p.id]?.own_goals ?? 0}
-                            onChange={e => updateStat(p.id, 'own_goals', parseInt(e.target.value) || 0)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center text-gray-900 outline-none focus:ring-1 focus:ring-green-500" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500 block mb-0.5">Meteu Caneta</label>
-                          <input type="number" min={0} value={playerStats[p.id]?.nutmeg_done ?? 0}
-                            onChange={e => updateStat(p.id, 'nutmeg_done', parseInt(e.target.value) || 0)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center text-gray-900 outline-none focus:ring-1 focus:ring-green-500" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500 block mb-0.5">Levou Caneta</label>
-                          <input type="number" min={0} value={playerStats[p.id]?.nutmeg_given ?? 0}
-                            onChange={e => updateStat(p.id, 'nutmeg_given', parseInt(e.target.value) || 0)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center text-gray-900 outline-none focus:ring-1 focus:ring-green-500" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-            </div>
+          )}
+        </div>
+
+        {statsError && (
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl mt-4 text-sm font-medium">
+            {statsError}
           </div>
         )}
+
+        <button onClick={handleSaveStats} disabled={saving}
+          className="w-full mt-6 py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-[#0a0e17] rounded-xl font-black text-sm uppercase tracking-wider hover:from-yellow-400 hover:to-amber-500 transition-all duration-200 shadow-lg shadow-yellow-500/25 disabled:opacity-50">
+          {saving ? 'Salvando...' : 'Salvar Estatísticas e Placar'}
+        </button>
       </div>
-      {statsError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mt-4 text-sm">
-          {statsError}
-        </div>
-      )}
-      <button onClick={handleSaveStats} disabled={saving}
-        className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition mt-4 disabled:opacity-50">
-        {saving ? 'Salvando...' : 'Salvar Estatísticas e Placar'}
-      </button>
     </div>
   )
 }
@@ -755,51 +798,6 @@ function ManagePlayersPanel({ matchId, players, teams, isAdmin }: {
   )
 }
 
-function MatchResultsPanel({ teams, results, players }: { teams: Team[]; results: MatchResult[]; players: MatchPlayer[] }) {
-  const getTeamPlayers = (teamId: string) => players.filter(p => p.team_id === teamId)
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-      <h2 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-900">
-        <Trophy size={20} className="text-yellow-500" /> Resultado
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {teams.map(team => {
-          const result = results.find(r => r.team_id === team.id)
-          const teamPlayers = getTeamPlayers(team.id)
-          return (
-            <div key={team.id} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-bold text-lg text-gray-900">{team.name}</h3>
-                <span className="text-2xl font-bold text-green-600">{result?.score ?? 0}</span>
-              </div>
-              <div className="space-y-1">
-                {teamPlayers.map(p => (
-                  <div key={p.id} className="flex items-center justify-between text-sm">
-                    <span className={p.no_show ? 'line-through text-gray-400' : 'text-gray-900'}>
-                      {p.profile?.name || p.guest_name}
-                      {p.no_show && <span className="text-red-500 ml-1 text-xs">(furão)</span>}
-                    </span>
-                    {!p.no_show && (
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <span>{p.goals} gols</span>
-                        <span>{p.assists} assist.</span>
-                        {p.own_goals > 0 && <span className="text-red-500">{p.own_goals} g.c.</span>}
-                        {p.nutmeg_done > 0 && <span className="text-blue-500">{p.nutmeg_done} caneta</span>}
-                        {p.nutmeg_given > 0 && <span className="text-orange-500">{p.nutmeg_given} levou</span>}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function VotingPanel({ matchId, profileId, players }: {
   matchId: string; profileId: string; players: MatchPlayer[]
@@ -920,6 +918,24 @@ function AwardsPanel({ awards }: { awards: MatchAward }) {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function StatStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-center bg-white/[0.06] rounded-lg border border-white/[0.10] overflow-hidden">
+      <button type="button" onClick={() => onChange(Math.max(0, value - 1))}
+        className="px-2 py-1.5 text-gray-400 hover:text-white hover:bg-white/[0.10] transition font-black text-sm leading-none">
+        −
+      </button>
+      <span className="w-8 py-1.5 text-xs font-black text-yellow-400 text-center leading-none tabular-nums select-none">
+        {value}
+      </span>
+      <button type="button" onClick={() => onChange(value + 1)}
+        className="px-2 py-1.5 text-gray-400 hover:text-white hover:bg-white/[0.10] transition font-black text-sm leading-none">
+        +
+      </button>
     </div>
   )
 }
