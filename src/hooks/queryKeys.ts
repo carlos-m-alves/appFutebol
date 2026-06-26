@@ -18,6 +18,7 @@ export const queryKeys = {
     members: (groupId: string) => ['groups', 'members', groupId],
     myStats: (profileId: string, groupId?: string) =>
       ['groups', 'myStats', profileId, groupId].filter(Boolean),
+    joinRequests: (groupId: string) => ['groups', 'joinRequests', groupId],
   },
   profiles: {
     detail: (profileId: string) => ['profiles', 'detail', profileId],

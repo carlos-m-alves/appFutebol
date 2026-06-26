@@ -14,6 +14,8 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ error: string | null }>
 }
 
+const OAUTH_PROVIDER_TOKEN_KEY = 'oauth_provider_token'
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -34,6 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
+      if (session?.provider_token) {
+        localStorage.setItem(OAUTH_PROVIDER_TOKEN_KEY, session.provider_token)
+      }
       setLoading(false)
     })
 
@@ -41,6 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
       else setProfile(null)
+      if (session?.provider_token) {
+        localStorage.setItem(OAUTH_PROVIDER_TOKEN_KEY, session.provider_token)
+      } else {
+        localStorage.removeItem(OAUTH_PROVIDER_TOKEN_KEY)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -66,14 +76,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` }
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: { prompt: 'select_account' }
+      }
     })
     if (error) throw error
   }
 
   async function signOut() {
+    const providerToken = localStorage.getItem(OAUTH_PROVIDER_TOKEN_KEY)
     await supabase.auth.signOut()
     setProfile(null)
+    localStorage.removeItem(OAUTH_PROVIDER_TOKEN_KEY)
+    if (providerToken) {
+      try {
+        await fetch(`https://oauth2.googleapis.com/revoke?token=${providerToken}`, { method: 'POST', mode: 'no-cors' })
+      } catch { }
+    }
   }
 
   async function resetPassword(email: string) {
