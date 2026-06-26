@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import { sanitizeText, sanitizeOptional } from '../lib/sanitize'
 import type {
   Group, GroupMember, Match, MatchConfirmation, Team,
-  MatchPlayer, MatchResult, PlayerRating, MatchAward, RecurringSchedule, Profile
+  MatchPlayer, MatchResult, PlayerRating, MatchAward, RecurringSchedule, Profile, GroupJoinRequest
 } from '../types'
 
 export const groupService = {
@@ -66,12 +66,20 @@ export const groupService = {
   },
 
   async leave(groupId: string, profileId: string) {
-    const { error } = await supabase
+    const { error: deleteMemberError } = await supabase
       .from('group_members')
       .delete()
       .eq('group_id', groupId)
       .eq('profile_id', profileId)
-    if (error) throw error
+    if (deleteMemberError) throw deleteMemberError
+
+    const { error: deleteRequestError } = await supabase
+      .from('group_join_requests')
+      .delete()
+      .eq('group_id', groupId)
+      .eq('profile_id', profileId)
+      .eq('status', 'APPROVED')
+    if (deleteRequestError) throw deleteRequestError
   },
 
   async removeMember(groupId: string, profileId: string) {
@@ -615,6 +623,59 @@ export interface MatchStats {
   assists: number
   matches_played: number
   avg_rating: number | null
+}
+
+export const groupJoinRequestService = {
+  async create(groupId: string, profileId: string): Promise<void> {
+    const { error } = await supabase
+      .from('group_join_requests')
+      .upsert(
+        { group_id: groupId, profile_id: profileId, status: 'PENDING', created_at: new Date().toISOString() },
+        { onConflict: 'group_id, profile_id', ignoreDuplicates: false }
+      )
+    if (error) throw error
+  },
+
+  async getPending(groupId: string): Promise<GroupJoinRequest[]> {
+    const { data } = await supabase
+      .from('group_join_requests')
+      .select('*, profile:profiles(*)')
+      .eq('group_id', groupId)
+      .eq('status', 'PENDING')
+      .order('created_at', { ascending: false })
+    return data ?? []
+  },
+
+  async approve(requestId: string, groupId: string, profileId: string): Promise<void> {
+    const { error: updateError } = await supabase
+      .from('group_join_requests')
+      .update({ status: 'APPROVED' })
+      .eq('id', requestId)
+    if (updateError) throw updateError
+
+    const { error: joinError } = await supabase
+      .from('group_members')
+      .insert({ group_id: groupId, profile_id: profileId, role: 'MEMBER' })
+    if (joinError) throw joinError
+  },
+
+  async reject(requestId: string): Promise<void> {
+    const { error } = await supabase
+      .from('group_join_requests')
+      .update({ status: 'REJECTED' })
+      .eq('id', requestId)
+    if (error) throw error
+  },
+
+  async cancel(groupId: string, profileId: string): Promise<void> {
+    const { error } = await supabase
+      .from('group_join_requests')
+      .delete()
+      .eq('group_id', groupId)
+      .eq('profile_id', profileId)
+      .eq('status', 'PENDING')
+    if (error) throw error
+  }
 }
 
 export async function getProfileByAuthId(authUserId: string): Promise<Profile | null> {

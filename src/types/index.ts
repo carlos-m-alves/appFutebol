@@ -130,6 +130,15 @@ export interface Court {
   created_at: string
 }
 
+export interface GroupJoinRequest {
+  id: string
+  group_id: string
+  profile_id: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  created_at: string
+  profile?: Profile
+}
+
 export interface MatchStats {
   player_id: string
   player_name: string

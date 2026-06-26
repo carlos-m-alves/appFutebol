@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { groupService, matchService, getProfile } from '../services/api'
+import { groupService, matchService, getProfile, groupJoinRequestService } from '../services/api'
 import { queryKeys } from './queryKeys'
 
 export function useGroupMembers(groupId: string | undefined) {
@@ -17,6 +17,15 @@ export function usePlayerStats(profileId: string | undefined, groupId?: string) 
     queryFn: () => matchService.getPlayerStats(profileId!, groupId),
     enabled: !!profileId,
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useGroupJoinRequests(groupId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.groups.joinRequests(groupId!),
+    queryFn: () => groupJoinRequestService.getPending(groupId!),
+    enabled: !!groupId,
+    staleTime: 30 * 1000,
   })
 }
 
