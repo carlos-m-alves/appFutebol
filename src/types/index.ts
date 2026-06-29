@@ -1,9 +1,20 @@
+export type PlayerPosition = 'GOLEIRO' | 'ZAGUEIRO' | 'LATERAL' | 'MEIO_CAMPO' | 'ATACANTE'
+
+export const POSITION_LABELS: Record<PlayerPosition, string> = {
+  GOLEIRO: 'Goleiro',
+  ZAGUEIRO: 'Zagueiro',
+  LATERAL: 'Lateral',
+  MEIO_CAMPO: 'Meio-Campo',
+  ATACANTE: 'Atacante',
+}
+
 export interface Profile {
   id: string
   auth_user_id: string
   name: string
   email: string
   avatar_url: string | null
+  position: PlayerPosition | null
   created_at: string
 }
 
@@ -112,6 +123,15 @@ export interface MatchAward {
   top_scorer?: Profile
   top_assist?: Profile
   worst_player?: Profile
+}
+
+export interface VoterPenalty {
+  id: string
+  match_id: string
+  profile_id: string
+  warned: boolean
+  penalty_count: number
+  created_at: string
 }
 
 export interface Court {

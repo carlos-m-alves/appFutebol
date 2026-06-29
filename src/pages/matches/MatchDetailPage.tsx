@@ -3,13 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
 import { supabase } from '../../lib/supabase'
-import { useMatch, useMatchTeams, useMatchPlayers, useMatchResults, useMatchConfirmations, useMatchAwards, useMatchRatings, useMatchGroupMembers, useUpdateMatchStatus, useMatchConfirmAttendance, useRemoveMatchPlayer, useAddMatchPlayer, useUpdatePlayerTeam, useSaveMatchPlayers, useSaveMatchResults, useSubmitRating, useCalculateAwards, useCreateTeam, useDeleteTeam, useAddGuestPlayer, useRemoveMatchPlayerById, useUpdateMatchPlayerTeamById, useUpdateGuestPlayerStats } from '../../hooks/useMatches'
-import type { Team, MatchPlayer, MatchResult, MatchAward, PlayerRating } from '../../types'
+import { useMatch, useMatchTeams, useMatchPlayers, useMatchResults, useMatchConfirmations, useMatchAwards, useMatchRatings, useMatchGroupMembers, useUpdateMatchStatus, useMatchConfirmAttendance, useRemoveMatchPlayer, useAddMatchPlayer, useUpdatePlayerTeam, useSaveMatchPlayers, useSaveMatchResults, useSubmitRating, useCalculateAwards, useCreateTeam, useDeleteTeam, useAddGuestPlayer, useRemoveMatchPlayerById, useUpdateMatchPlayerTeamById, useUpdateGuestPlayerStats, useVoterPenalties, useClearVoterPenalty } from '../../hooks/useMatches'
+import type { Team, MatchPlayer, MatchAward, PlayerRating } from '../../types'
+import { balanceTeams } from '../../services/teamBalancer'
 import { MATCH_STATUS } from '../../lib/constants'
 import { StarRating, DisplayRating } from '../../components/ui/StarRating'
+import { useToast } from '../../components/ui/Toast'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { FifaErrorScreen } from '../../components/ui/FifaErrorScreen'
-import { Calendar, MapPin, Users, Trophy, Star, Swords, Award, ThumbsDown, Goal, UserPlus, Check, Plus, Trash2 } from 'lucide-react'
+import { Calendar, MapPin, Users, Trophy, Star, Swords, Award, ThumbsDown, Goal, UserPlus, Check, Plus, Trash2, Shuffle } from 'lucide-react'
 
 export function MatchDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -29,7 +31,8 @@ export function MatchDetailPage() {
   const { mutateAsync: updateStatus } = useUpdateMatchStatus()
   const { mutateAsync: confirmAttendance } = useMatchConfirmAttendance()
   const { mutateAsync: calculateAwards } = useCalculateAwards()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { data: voterPenalties = [] } = useVoterPenalties(awards ? id : undefined)
+  const { mutateAsync: clearPenalty } = useClearVoterPenalty()
   const [startError, setStartError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -127,6 +130,44 @@ export function MatchDetailPage() {
         </div>
       </div>
 
+      {awards && (
+        <AwardsPanel awards={awards} />
+      )}
+
+      {awards && profile && (() => {
+        const myPenalty = voterPenalties.find(p => p.profile_id === profile.id && !p.warned)
+        if (!myPenalty) return null
+
+        setTimeout(() => {
+          const el = document.getElementById('penalty-warning')
+          el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }, 100)
+
+        return (
+          <div id="penalty-warning" className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+            <div className="flex items-start gap-3">
+              <div className="text-red-500 text-2xl shrink-0">!</div>
+              <div className="flex-1">
+                <h3 className="font-bold text-red-800 mb-1">Atenção!</h3>
+                <p className="text-sm text-red-700">
+                  O jogo é para ser divertido e fazer amigos. Se você continuar votando de maneira injusta,
+                  a sua nota é que será diminuída.
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  await clearPenalty({ matchId: id!, profileId: profile.id })
+                }}
+                className="text-red-400 hover:text-red-600 transition shrink-0 p-1"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )
+      })()}
+
       {match.status === 'FINISHED' && !match.evaluation_open && !match.evaluation_closed && isAdmin && (
         <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
           <p className="text-purple-800 font-medium mb-2">Partida finalizada!</p>
@@ -147,7 +188,7 @@ export function MatchDetailPage() {
       )}
 
       {(match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS') && (
-        <ManagePlayersPanel matchId={match.id} players={players} teams={teams} isAdmin={isAdmin} />
+        <ManagePlayersPanel matchId={match.id} groupId={match.group_id} players={players} teams={teams} isAdmin={isAdmin} />
       )}
 
       {isAdmin && !results.length && (match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS') && (
@@ -155,12 +196,12 @@ export function MatchDetailPage() {
       )}
 
       {isAdmin && match.status === 'FINISHED' && (
-        <MatchStatsPanel match={match} players={players} teams={teams} results={results} groupMembers={groupMembers} ratings={ratings} />
+        <MatchStatsPanel match={match} players={players} teams={teams} groupMembers={groupMembers} ratings={ratings} />
       )}
 
       {canVote && !awards && (
         <div className="bg-purple-50 border border-purple-200 rounded-xl p-6 mb-6 text-center">
-          <h2 className="font-bold text-lg mb-2 flex items-center justify-center gap-2">
+          <h2 className="font-bold text-lg mb-2 flex items-center justify-center gap-2 text-gray-900">
             <Star size={20} className="text-purple-500" /> Votação aberta!
           </h2>
           <p className="text-sm text-gray-600 mb-4">Avalie os jogadores que participaram desta partida.</p>
@@ -173,15 +214,11 @@ export function MatchDetailPage() {
 
       {awaitingEvaluation && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mb-6 text-center">
-          <h2 className="font-bold text-lg mb-2 flex items-center justify-center gap-2">
+          <h2 className="font-bold text-lg mb-2 flex items-center justify-center gap-2 text-gray-900">
             <Star size={20} className="text-yellow-500" /> Você já votou!
           </h2>
           <p className="text-sm text-gray-600">Você já avaliou todos os jogadores. Aguardando os outros participantes finalizarem a votação.</p>
         </div>
-      )}
-
-      {awards && (
-        <AwardsPanel awards={awards} />
       )}
 
       {awards && profile && (
@@ -256,7 +293,7 @@ function MatchAdminPanel({ matchId, teams, players, groupMembers }: {
           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none text-gray-900" />
         <button onClick={handleAddGuest} disabled={!guestName.trim()}
           className="flex items-center gap-1 px-3 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition disabled:opacity-50">
-          <UserPlus size={14} /> Convidar
+          <UserPlus size={14} /> Adicionar
         </button>
       </div>
 
@@ -284,8 +321,8 @@ function MatchAdminPanel({ matchId, teams, players, groupMembers }: {
   )
 }
 
-function MatchStatsPanel({ match, players, teams, results, groupMembers, ratings }: {
-  match: any; players: MatchPlayer[]; teams: Team[]; results: MatchResult[]; groupMembers: any[]; ratings: PlayerRating[]
+function MatchStatsPanel({ match, players, teams, groupMembers, ratings }: {
+  match: any; players: MatchPlayer[]; teams: Team[]; groupMembers: any[]; ratings: PlayerRating[]
 }) {
   const [playerStats, setPlayerStats] = useState<Record<string, {
     teamId: string; goals: number; assists: number; own_goals: number
@@ -293,6 +330,7 @@ function MatchStatsPanel({ match, players, teams, results, groupMembers, ratings
   }>>({})
   const [scores, setScores] = useState<Record<string, number>>({})
   const [statsError, setStatsError] = useState<string | null>(null)
+  const { showToast } = useToast()
   const { mutateAsync: savePlayers, isPending: saving } = useSaveMatchPlayers()
   const { mutateAsync: saveResults } = useSaveMatchResults()
   const { mutateAsync: updateGuestStats } = useUpdateGuestPlayerStats()
@@ -392,6 +430,7 @@ function MatchStatsPanel({ match, players, teams, results, groupMembers, ratings
     }
 
     await Promise.all(promises)
+    showToast('Estatísticas salvas com sucesso!')
   }
 
   const allPlayers = players.length > 0 ? players : groupMembers.map((gm: any) => ({
@@ -460,20 +499,25 @@ function MatchStatsPanel({ match, players, teams, results, groupMembers, ratings
 
               return (
                 <div className="mt-4 pt-4 border-t border-white/[0.06]">
-                  <div className="flex items-center justify-center gap-8 flex-wrap">
-                    {teams.map(team => {
+                  <div className="flex items-stretch justify-center gap-0">
+                    {teams.map((team, idx) => {
                       const scorers = scorersByTeam.get(team.id) || []
                       if (scorers.length === 0) return null
                       return (
-                        <div key={team.id} className="text-center">
-                          <div className="space-y-0.5">
-                            {scorers.map((s, i) => (
-                              <p key={i} className="text-xs font-bold text-white flex items-center gap-1">
-                                {s.own && <span className="text-[9px] text-red-400 font-black uppercase tracking-wider">(g.c.)</span>}
-                                {s.name}
-                                {s.goals > 1 && <span className="text-yellow-400 font-black tabular-nums">×{s.goals}</span>}
-                              </p>
-                            ))}
+                        <div key={team.id} className="flex items-stretch">
+                          {idx > 0 && (
+                            <div className="w-px bg-white/[0.10] mx-6 shrink-0" />
+                          )}
+                          <div className={`flex-1 text-center ${idx === 0 ? 'pl-2' : ''}`}>
+                            <div className="space-y-0.5">
+                              {scorers.map((s, i) => (
+                                <p key={i} className="text-xs font-bold text-white flex items-center gap-1 justify-center">
+                                  {s.own && <span className="text-[9px] text-red-400 font-black uppercase tracking-wider">(g.c.)</span>}
+                                  {s.name}
+                                  {s.goals > 1 && <span className="text-yellow-400 font-black tabular-nums">×{s.goals}</span>}
+                                </p>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       )
@@ -644,8 +688,8 @@ function MatchStatsPanel({ match, players, teams, results, groupMembers, ratings
   )
 }
 
-function ManagePlayersPanel({ matchId, players, teams, isAdmin }: {
-  matchId: string; players: MatchPlayer[]; teams: Team[]; isAdmin: boolean
+function ManagePlayersPanel({ matchId, groupId, players, teams, isAdmin }: {
+  matchId: string; groupId: string; players: MatchPlayer[]; teams: Team[]; isAdmin: boolean
 }) {
   const { mutateAsync: updatePlayerTeam } = useUpdatePlayerTeam()
   const { mutateAsync: createTeam } = useCreateTeam()
@@ -654,6 +698,7 @@ function ManagePlayersPanel({ matchId, players, teams, isAdmin }: {
   const { mutateAsync: removeMatchPlayer } = useRemoveMatchPlayerById()
   const { mutateAsync: updateMatchPlayerTeam } = useUpdateMatchPlayerTeamById()
   const [deletingTeam, setDeletingTeam] = useState<string | null>(null)
+  const [balancing, setBalancing] = useState(false)
 
   const playersInMatch = players.filter(p => !p.no_show)
 
@@ -663,6 +708,58 @@ function ManagePlayersPanel({ matchId, players, teams, isAdmin }: {
 
   function getPlayerInitial(p: MatchPlayer) {
     return p.guest_name?.charAt(0).toUpperCase() || p.profile?.name?.charAt(0).toUpperCase() || '?'
+  }
+
+  function getPlayerPosition(p: MatchPlayer): string | null {
+    return p.profile?.position || null
+  }
+
+  const positionLabels: Record<string, string> = {
+    GOLEIRO: 'Goleiro', ZAGUEIRO: 'Zagueiro', LATERAL: 'Lateral',
+    MEIO_CAMPO: 'Meio-Campo', ATACANTE: 'Atacante',
+  }
+
+  async function handleBalanceTeams() {
+    if (playersInMatch.length < 2) return
+    setBalancing(true)
+    try {
+      const currentTeams = [...teams]
+      while (currentTeams.length < 2) {
+        const nextLetter = String.fromCharCode(65 + currentTeams.length)
+        const created = await createTeam({ matchId, name: `Time ${nextLetter}` })
+        currentTeams.push(created)
+      }
+
+      const balancerPlayers = playersInMatch
+        .filter(p => p.profile_id)
+        .map(p => ({
+          profile_id: p.profile_id!,
+          name: getPlayerName(p),
+          position: getPlayerPosition(p) as any,
+        }))
+
+      if (balancerPlayers.length < 2) { setBalancing(false); return }
+
+      const assignments = await balanceTeams(groupId, balancerPlayers, 2)
+
+      for (const assignment of assignments) {
+        const team = currentTeams[assignment.teamIndex]
+        if (!team) continue
+        for (const playerId of assignment.playerIds) {
+          const matchPlayer = playersInMatch.find(p => p.profile_id === playerId)
+          if (matchPlayer) {
+            if (matchPlayer.profile_id) {
+              await updatePlayerTeam({ matchId, profileId: matchPlayer.profile_id, teamId: team.id })
+            } else {
+              await updateMatchPlayerTeam({ matchId, playerId: matchPlayer.id, teamId: team.id })
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao balancear times:', err)
+    }
+    setBalancing(false)
   }
 
   async function handlePlayerTeamChange(p: MatchPlayer, teamId: string) {
@@ -703,9 +800,13 @@ function ManagePlayersPanel({ matchId, players, teams, isAdmin }: {
             </div>
           )}
           <span className="text-sm text-gray-900">{getPlayerName(player)}</span>
-          {player.guest_name && (
+          {player.guest_name ? (
             <span className="text-[10px] text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded font-medium">Convidado</span>
-          )}
+          ) : getPlayerPosition(player) ? (
+            <span className="text-[10px] text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded font-medium">
+              {positionLabels[getPlayerPosition(player)!]}
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
@@ -775,9 +876,15 @@ function ManagePlayersPanel({ matchId, players, teams, isAdmin }: {
       )}
 
       {isAdmin && (
-        <button onClick={addTeam} className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1">
-          <Plus size={14} /> Adicionar Time
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={addTeam} className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1">
+            <Plus size={14} /> Adicionar Time
+          </button>
+          <button onClick={handleBalanceTeams} disabled={balancing || playersInMatch.length < 2}
+            className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition flex items-center gap-1.5 disabled:opacity-50">
+            <Shuffle size={14} /> {balancing ? 'Dividindo...' : 'Dividir Times'}
+          </button>
+        </div>
       )}
     </div>
 
@@ -909,7 +1016,7 @@ function AwardsPanel({ awards }: { awards: MatchAward }) {
             <p className="text-sm font-medium text-gray-600 mb-1">{a.label}</p>
             {a.player ? (
               <>
-                <p className="font-bold">{a.player.name}</p>
+                <p className="font-bold text-gray-900">{a.player.name}</p>
                 {a.rating && <DisplayRating value={a.rating} size="sm" />}
               </>
             ) : (

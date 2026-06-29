@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import { sanitizeText, sanitizeOptional } from '../lib/sanitize'
 import type {
   Group, GroupMember, Match, MatchConfirmation, Team,
-  MatchPlayer, MatchResult, PlayerRating, MatchAward, RecurringSchedule, Profile, GroupJoinRequest
+  MatchPlayer, MatchResult, PlayerRating, MatchAward, RecurringSchedule, Profile, GroupJoinRequest, VoterPenalty
 } from '../types'
 
 export const groupService = {
@@ -465,6 +465,23 @@ export const matchService = {
     if (error) throw error
   },
 
+  async getVoterPenalties(matchId: string): Promise<VoterPenalty[]> {
+    const { data } = await supabase
+      .from('voter_penalties')
+      .select('*')
+      .eq('match_id', matchId)
+    return data ?? []
+  },
+
+  async clearVoterPenalty(matchId: string, profileId: string) {
+    const { error } = await supabase
+      .from('voter_penalties')
+      .update({ warned: true })
+      .eq('match_id', matchId)
+      .eq('profile_id', profileId)
+    if (error) throw error
+  },
+
   async getSchedules(groupId: string): Promise<RecurringSchedule[]> {
     const { data } = await supabase
       .from('recurring_schedules')
@@ -497,14 +514,40 @@ export const matchService = {
     const matchesWon = playerData?.filter(p => p.won_match).length ?? 0
     const matchesPlayed = playerData?.length ?? 0
 
-    const { data: ratingData } = await supabase
+    let ratingQuery = supabase
       .from('player_ratings')
       .select('rating')
       .eq('rated_profile_id', profileId)
 
-    const avgRating = ratingData && ratingData.length > 0
+    if (groupId) {
+      const { data: gMatchIds } = await supabase
+        .from('matches')
+        .select('id')
+        .eq('group_id', groupId)
+
+      if (gMatchIds && gMatchIds.length > 0) {
+        ratingQuery = ratingQuery.in('match_id', gMatchIds.map(m => m.id))
+      }
+    }
+
+    const { data: ratingData } = await ratingQuery
+
+    let avgRating = ratingData && ratingData.length > 0
       ? Math.round((ratingData.reduce((sum, r) => sum + r.rating, 0) / ratingData.length) * 2) / 2
       : null
+
+    // Apply voter penalty deduction
+    if (avgRating !== null) {
+      const { data: penalties } = await supabase
+        .from('voter_penalties')
+        .select('penalty_count')
+        .eq('profile_id', profileId)
+
+      const totalPenalty = penalties?.reduce((sum, p) => sum + p.penalty_count, 0) ?? 0
+      if (totalPenalty > 0) {
+        avgRating = Math.max(1.0, Math.round((avgRating - totalPenalty * 0.5) * 2) / 2)
+      }
+    }
 
     return { goals, assists, own_goals, nutmeg_given, nutmeg_done, matchesPlayed, avgRating, matchesWon }
   },
@@ -551,17 +594,47 @@ export const matchService = {
       stat.matchesPlayed++
     }
 
+    const profileIds = Array.from(statsMap.keys()).filter(k => k)
+    const ratingsByProfile: Record<string, number[]> = {}
+
+    if (profileIds.length > 0) {
+      const { data: allRatings } = await supabase
+        .from('player_ratings')
+        .select('rated_profile_id, rating')
+        .in('rated_profile_id', profileIds)
+        .in('match_id', ids)
+
+      for (const r of allRatings ?? []) {
+        if (!ratingsByProfile[r.rated_profile_id]) ratingsByProfile[r.rated_profile_id] = []
+        ratingsByProfile[r.rated_profile_id].push(r.rating)
+      }
+    }
+
+    // Fetch voter penalties to apply deduction
+    const penaltiesByProfile: Record<string, number> = {}
+    if (profileIds.length > 0) {
+      const { data: allPenalties } = await supabase
+        .from('voter_penalties')
+        .select('profile_id, penalty_count')
+        .in('profile_id', profileIds)
+
+      for (const p of allPenalties ?? []) {
+        penaltiesByProfile[p.profile_id] = (penaltiesByProfile[p.profile_id] || 0) + p.penalty_count
+      }
+    }
+
     const result: MatchStats[] = []
 
     for (const [profileId, stat] of statsMap) {
-      const { data: ratingData } = await supabase
-        .from('player_ratings')
-        .select('rating')
-        .eq('rated_profile_id', profileId)
-
-      const avgRating = ratingData && ratingData.length > 0
-        ? Math.round((ratingData.reduce((sum, r) => sum + r.rating, 0) / ratingData.length) * 2) / 2
+      const profileRatings = ratingsByProfile[profileId] ?? []
+      let avgRating = profileRatings.length > 0
+        ? Math.round((profileRatings.reduce((sum, r) => sum + r, 0) / profileRatings.length) * 2) / 2
         : null
+
+      // Apply voter penalty deduction
+      if (avgRating !== null && penaltiesByProfile[profileId]) {
+        avgRating = Math.max(1.0, Math.round((avgRating - penaltiesByProfile[profileId] * 0.5) * 2) / 2)
+      }
 
       result.push({
         player_id: profileId,
@@ -623,6 +696,132 @@ export interface MatchStats {
   assists: number
   matches_played: number
   avg_rating: number | null
+}
+
+export interface PlayerRankingStats {
+  player_id: string
+  player_name: string
+  player_avatar: string | null
+  goals: number
+  assists: number
+  own_goals: number
+  nutmeg_given: number
+  nutmeg_done: number
+  wins: number
+  draws: number
+  losses: number
+  last3: ('win' | 'draw' | 'loss')[]
+}
+
+export const rankingService = {
+  async getStats(groupId: string, filters?: { year?: number; playerId?: string }): Promise<PlayerRankingStats[]> {
+    let matchQuery = supabase.from('matches').select('id, match_date').eq('group_id', groupId)
+
+    if (filters?.year) {
+      const yearStart = new Date(`${filters.year}-01-01`).toISOString()
+      const yearEnd = new Date(`${filters.year}-12-31`).toISOString()
+      matchQuery = matchQuery.gte('match_date', yearStart).lte('match_date', yearEnd)
+    }
+
+    const { data: matchData } = await matchQuery
+    if (!matchData || matchData.length === 0) return []
+
+    const ids = matchData.map(m => m.id)
+    const matchDateMap = new Map(matchData.map(m => [m.id, m.match_date]))
+
+    let playersQuery = supabase
+      .from('match_players')
+      .select('*, profile:profiles(*)')
+      .in('match_id', ids)
+
+    if (filters?.playerId) {
+      playersQuery = playersQuery.eq('profile_id', filters.playerId)
+    }
+
+    const { data: players } = await playersQuery
+    if (!players) return []
+
+    const { data: results } = await supabase
+      .from('match_results')
+      .select('*, team:teams(*)')
+      .in('match_id', ids)
+
+    const scoresByMatch: Record<string, { team_id: string; score: number }[]> = {}
+    for (const r of results ?? []) {
+      if (!scoresByMatch[r.match_id]) scoresByMatch[r.match_id] = []
+      scoresByMatch[r.match_id].push({ team_id: r.team_id, score: r.score })
+    }
+
+    function getMatchResult(matchId: string, teamId: string): 'win' | 'draw' | 'loss' | null {
+      const matchScores = scoresByMatch[matchId]
+      if (!matchScores || matchScores.length < 2) return null
+      const teamScore = matchScores.find(s => s.team_id === teamId)?.score ?? -1
+      const otherScore = matchScores.find(s => s.team_id !== teamId)?.score ?? -1
+      if (teamScore < 0 || otherScore < 0) return null
+      if (teamScore > otherScore) return 'win'
+      if (teamScore < otherScore) return 'loss'
+      return 'draw'
+    }
+
+    const statsMap = new Map<string, {
+      profile: Profile; goals: number; assists: number; own_goals: number
+      nutmeg_given: number; nutmeg_done: number; wins: number; draws: number; losses: number
+      matchHistory: { result: 'win' | 'draw' | 'loss'; date: string }[]
+    }>()
+
+    for (const p of players) {
+      if (!p.profile_id || !p.profile) continue
+      if (!statsMap.has(p.profile_id)) {
+        statsMap.set(p.profile_id, {
+          profile: p.profile,
+          goals: 0, assists: 0, own_goals: 0,
+          nutmeg_given: 0, nutmeg_done: 0,
+          wins: 0, draws: 0, losses: 0,
+          matchHistory: [],
+        })
+      }
+      const stat = statsMap.get(p.profile_id)!
+      stat.goals += p.goals || 0
+      stat.assists += p.assists || 0
+      stat.own_goals += p.own_goals || 0
+      stat.nutmeg_given += p.nutmeg_given || 0
+      stat.nutmeg_done += p.nutmeg_done || 0
+
+      if (p.team_id) {
+        const result = getMatchResult(p.match_id, p.team_id)
+        if (result) {
+          if (result === 'win') stat.wins++
+          else if (result === 'draw') stat.draws++
+          else stat.losses++
+          stat.matchHistory.push({ result, date: matchDateMap.get(p.match_id) || '' })
+        }
+      }
+    }
+
+    const result: PlayerRankingStats[] = []
+
+    for (const [, stat] of statsMap) {
+      stat.matchHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      const last3 = stat.matchHistory.slice(0, 3).map(h => h.result)
+
+      result.push({
+        player_id: stat.profile.id,
+        player_name: stat.profile.name,
+        player_avatar: stat.profile.avatar_url,
+        goals: stat.goals,
+        assists: stat.assists,
+        own_goals: stat.own_goals,
+        nutmeg_given: stat.nutmeg_given,
+        nutmeg_done: stat.nutmeg_done,
+        wins: stat.wins,
+        draws: stat.draws,
+        losses: stat.losses,
+        last3,
+      })
+    }
+
+    return result.sort((a, b) => b.goals - a.goals)
+  },
 }
 
 export const groupJoinRequestService = {
@@ -696,8 +895,8 @@ export async function getProfile(id: string): Promise<Profile | null> {
   return data
 }
 
-export async function updateProfile(profileId: string, updates: { name?: string; avatar_url?: string | null }): Promise<void> {
-  const clean: typeof updates = {}
+export async function updateProfile(profileId: string, updates: { name?: string; avatar_url?: string | null; position?: string | null }): Promise<void> {
+  const clean: Record<string, unknown> = {}
   if (updates.name !== undefined) {
     const n = sanitizeText(updates.name, 100)
     if (!n) throw new Error('Nome inválido')
@@ -705,6 +904,9 @@ export async function updateProfile(profileId: string, updates: { name?: string;
   }
   if (updates.avatar_url !== undefined) {
     clean.avatar_url = updates.avatar_url
+  }
+  if (updates.position !== undefined) {
+    clean.position = updates.position || null
   }
   const { error } = await supabase
     .from('profiles')

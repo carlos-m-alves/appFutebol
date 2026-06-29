@@ -96,7 +96,7 @@ function MatchCard({ match }: { match: any }) {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   })
 
-  if (isFinished && hasResults) {
+  if (isFinished) {
     return (
       <Link to={`/matches/${match.id}`}
         className="block bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden hover:from-slate-700 hover:to-slate-800 transition-all duration-300 shadow-lg hover:shadow-xl group">
@@ -131,7 +131,7 @@ function MatchCard({ match }: { match: any }) {
 
             {/* Score */}
             <div className="flex items-center gap-3 mx-6">
-              <span className="text-white text-5xl font-black tabular-nums">{teamA.score}</span>
+              <span className="text-white text-5xl font-black tabular-nums">{teamA?.score ?? 0}</span>
               <div className="flex flex-col items-center gap-1">
                 <span className="text-gray-400 text-xs font-semibold tracking-widest">FT</span>
                 <div className="w-8 h-px bg-white/20" />
@@ -230,15 +230,15 @@ function MatchCard({ match }: { match: any }) {
   }
 
   return (
-    <Link to={`/matches/${match.id}`}
-      className="block bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isInProgress ? 'bg-yellow-100' : 'bg-green-100'}`}>
-            <Calendar className={isInProgress ? 'text-yellow-600' : 'text-green-600'} size={24} />
-          </div>
-          <div>
-            <p className="font-medium">{fullDateStr}</p>
+      <Link to={`/matches/${match.id}`}
+        className="block bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isInProgress ? 'bg-yellow-100' : 'bg-green-100'}`}>
+              <Calendar className={isInProgress ? 'text-yellow-600' : 'text-green-600'} size={24} />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900">{fullDateStr}</p>
             <div className="flex items-center gap-2 mt-1">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                 isInProgress ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'

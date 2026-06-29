@@ -5,6 +5,7 @@ import { GroupProvider } from './contexts/GroupContext'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { Layout } from './components/layout/Layout'
 import { LoginPage, RegisterPage, ForgotPasswordPage, AuthCallbackPage } from './pages/auth/AuthPages'
+import { ToastProvider } from './components/ui/Toast'
 import { DashboardPage } from './pages/DashboardPage'
 import { GroupsListPage, CreateGroupPage, JoinGroupPage, GroupSettingsPage } from './pages/groups/GroupPages'
 import { MatchesListPage } from './pages/matches/MatchesListPage'
@@ -23,6 +24,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
+          <ToastProvider>
           <GroupProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
@@ -51,6 +53,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </GroupProvider>
+          </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

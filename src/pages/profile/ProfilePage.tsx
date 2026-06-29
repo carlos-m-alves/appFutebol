@@ -3,10 +3,16 @@ import { useAuth } from '../../contexts/AuthContext'
 import { updateProfile } from '../../services/api'
 import { uploadAvatar } from '../../services/storage'
 import { User, Save, Camera } from 'lucide-react'
+import { POSITION_LABELS, type PlayerPosition } from '../../types'
+
+const POSITIONS: { value: PlayerPosition; label: string }[] = Object.entries(POSITION_LABELS).map(([value, label]) => ({
+  value: value as PlayerPosition, label
+}))
 
 export function ProfilePage() {
   const { profile } = useAuth()
   const [name, setName] = useState(profile?.name || '')
+  const [position, setPosition] = useState(profile?.position || '')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -39,7 +45,7 @@ export function ProfilePage() {
       if (avatarFile) {
         avatar_url = await uploadAvatar(avatarFile, profile.id)
       }
-      await updateProfile(profile.id, { name, avatar_url })
+      await updateProfile(profile.id, { name, avatar_url, position: position || null })
       setAvatarFile(null)
       setAvatarPreview(null)
       setMessage('Perfil atualizado com sucesso!')
@@ -69,7 +75,7 @@ export function ProfilePage() {
             </div>
           </button>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-          <h1 className="text-xl font-bold">{profile?.name}</h1>
+          <h1 className="text-xl font-bold text-gray-900">{profile?.name}</h1>
           <p className="text-sm text-gray-500">{profile?.email}</p>
           <span className="text-xs text-gray-400 mt-1">Clique na foto para alterar (até 1MB)</span>
         </div>
@@ -79,7 +85,18 @@ export function ProfilePage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
             <input type="text" value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none" />
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none text-gray-900" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Posição</label>
+            <select value={position} onChange={e => setPosition(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none text-gray-900">
+              <option value="">Selecione uma posição</option>
+              {POSITIONS.map(p => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
           </div>
 
           {message && (

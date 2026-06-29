@@ -516,6 +516,8 @@ function GroupSettingsContent() {
   const [removingMember, setRemovingMember] = useState<string | null>(null)
   const [demotingMember, setDemotingMember] = useState<string | null>(null)
   const [showLeaveModal, setShowLeaveModal] = useState(false)
+  const [matchPage, setMatchPage] = useState(1)
+  const MATCHES_PER_PAGE = 10
 
   useEffect(() => {
     if (currentGroup) { loadMembers(); loadJoinRequests(); loadMatches() }
@@ -555,6 +557,7 @@ function GroupSettingsContent() {
     setLoadingMatches(true)
     const data = await matchService.listWithResults(currentGroup.id)
     setMatches(data)
+    setMatchPage(1)
     setLoadingMatches(false)
   }
 
@@ -598,6 +601,8 @@ function GroupSettingsContent() {
 
   const nextMatch = matches.filter(m => m.status === 'SCHEDULED' || m.status === 'CONFIRMED').sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())[0]
   const finishedMatches = matches.filter(m => m.status === 'FINISHED').sort((a, b) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime())
+  const totalMatchPages = Math.max(1, Math.ceil(finishedMatches.length / MATCHES_PER_PAGE))
+  const paginatedMatches = finishedMatches.slice((matchPage - 1) * MATCHES_PER_PAGE, matchPage * MATCHES_PER_PAGE)
 
   if (!currentGroup) return <div className="text-center py-8 text-gray-400">Selecione um grupo primeiro.</div>
 
@@ -643,11 +648,13 @@ function GroupSettingsContent() {
         </div>
       </div>
 
-      {/* Create Match Button */}
-      <Link to="/matches/new"
-        className="flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-[#0a0e17] rounded-xl font-black text-sm hover:from-yellow-400 hover:to-amber-500 transition-all duration-200 shadow-lg shadow-yellow-500/25">
-        <Plus size={18} /> Criar Partida
-      </Link>
+      {/* Create Match Button (admin only) */}
+      {currentGroupRole === 'ADMIN' && (
+        <Link to="/matches/new"
+          className="flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-[#0a0e17] rounded-xl font-black text-sm hover:from-yellow-400 hover:to-amber-500 transition-all duration-200 shadow-lg shadow-yellow-500/25">
+          <Plus size={18} /> Criar Partida
+        </Link>
+      )}
 
       {/* Next Match Card */}
       {nextMatch && (
@@ -699,7 +706,7 @@ function GroupSettingsContent() {
             <p className="text-sm text-gray-500">Nenhuma partida realizada ainda.</p>
           ) : (
             <div className="space-y-2">
-              {finishedMatches.map(m => {
+              {paginatedMatches.map(m => {
                 const scores = m.results
                   .sort((a, b) => (a.team?.name || '').localeCompare(b.team?.name || ''))
                   .map(r => r.score)
@@ -713,18 +720,48 @@ function GroupSettingsContent() {
                       {m.location && <p className="text-xs text-gray-500 mt-0.5">{m.location}</p>}
                     </div>
                     <div className="flex items-center gap-3">
-                      {scores.length === 2 && (
-                        <div className="flex items-center gap-1.5 font-black text-sm">
-                          <span className="text-yellow-400">{scores[0]}</span>
-                          <span className="text-gray-600 text-xs">×</span>
-                          <span className="text-yellow-400">{scores[1]}</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5 font-black text-sm">
+                        <span className="text-yellow-400">{scores[0] ?? 0}</span>
+                        <span className="text-gray-600 text-xs">×</span>
+                        <span className="text-yellow-400">{scores[1] ?? 0}</span>
+                      </div>
                       <ChevronRight size={16} className="text-gray-600 group-hover:text-yellow-400 transition-colors" />
                     </div>
                   </Link>
                 )
               })}
+            </div>
+          )}
+
+          {finishedMatches.length > MATCHES_PER_PAGE && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <button
+                onClick={() => setMatchPage(p => Math.max(1, p - 1))}
+                disabled={matchPage === 1}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.12] transition disabled:opacity-30 disabled:cursor-not-allowed border border-white/[0.06]"
+              >
+                Anterior
+              </button>
+              {Array.from({ length: totalMatchPages }, (_, i) => i + 1).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setMatchPage(p)}
+                  className={`w-8 h-8 text-xs font-bold rounded-lg transition border ${
+                    p === matchPage
+                      ? 'bg-yellow-500 text-[#0a0e17] border-yellow-500'
+                      : 'bg-white/[0.06] text-gray-400 hover:text-white border-white/[0.06]'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                onClick={() => setMatchPage(p => Math.min(totalMatchPages, p + 1))}
+                disabled={matchPage === totalMatchPages}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.12] transition disabled:opacity-30 disabled:cursor-not-allowed border border-white/[0.06]"
+              >
+                Próximo
+              </button>
             </div>
           )}
         </div>

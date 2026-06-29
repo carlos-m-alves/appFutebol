@@ -484,6 +484,19 @@ create policy "Admins can manage match players"
     )
   );
 
+create policy "Players can add themselves"
+  on public.match_players for insert
+  to authenticated
+  with check (
+    profile_id = (select id from public.profiles where auth_user_id = auth.uid())
+    and exists (
+      select 1 from public.matches
+      join public.group_members on group_members.group_id = matches.group_id
+      where matches.id = match_players.match_id
+      and group_members.profile_id = (select id from public.profiles where auth_user_id = auth.uid())
+    )
+  );
+
 create policy "Admins can update match players"
   on public.match_players for update
   to authenticated
@@ -554,12 +567,20 @@ create policy "Players who participated can rate"
   to authenticated
   with check (
     rater_profile_id = (select id from public.profiles where auth_user_id = auth.uid())
-    and exists (
-      select 1 from public.match_players
-      where match_players.match_id = player_ratings.match_id
-      and match_players.profile_id = (select id from public.profiles where auth_user_id = auth.uid())
-    )
     and rater_profile_id != rated_profile_id
+    and (
+      exists (
+        select 1 from public.match_players
+        where match_players.match_id = player_ratings.match_id
+        and match_players.profile_id = (select id from public.profiles where auth_user_id = auth.uid())
+      )
+      or exists (
+        select 1 from public.match_confirmations
+        where match_confirmations.match_id = player_ratings.match_id
+        and match_confirmations.profile_id = (select id from public.profiles where auth_user_id = auth.uid())
+        and match_confirmations.status = 'CONFIRMED'
+      )
+    )
   );
 
 -- MATCH AWARDS
@@ -669,31 +690,46 @@ begin
   order by avg(rating) desc
   limit 1;
 
-  -- Top scorer
+  -- Top scorer (exclude no_show)
   select profile_id
   into v_top_scorer
   from public.match_players
   where match_id = p_match_id
+  and no_show = false
   order by goals desc
   limit 1;
 
-  -- Top assist
+  -- Top assist (exclude no_show)
   select profile_id
   into v_top_assist
   from public.match_players
   where match_id = p_match_id
+  and no_show = false
   order by assists desc
   limit 1;
 
-  -- Worst player (lowest average rating, minimum 2 ratings)
+  -- Worst player -- first try by lowest average rating (min 2 ratings)
   select rated_profile_id
   into v_worst_player
   from public.player_ratings
   where match_id = p_match_id
+  and rated_profile_id not in (
+    select profile_id from public.match_players
+    where match_id = p_match_id and no_show = true
+  )
   group by rated_profile_id
   having count(*) >= 2
   order by avg(rating) asc
   limit 1;
+
+  -- If no worst player found by ratings, pick first no_show player
+  if v_worst_player is null then
+    select profile_id into v_worst_player
+    from public.match_players
+    where match_id = p_match_id
+    and no_show = true
+    limit 1;
+  end if;
 
   -- Upsert awards
   insert into public.match_awards (match_id, best_player_profile_id, top_scorer_profile_id, top_assist_profile_id, worst_player_profile_id, best_player_rating)
