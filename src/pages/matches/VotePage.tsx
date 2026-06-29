@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useMatch, useMatchPlayers, useMatchRatings, useSubmitRating } from '../../hooks/useMatches'
-import { StarRating, DisplayRating } from '../../components/ui/StarRating'
-import { ArrowLeft, ChevronLeft, Send, Check } from 'lucide-react'
+import { StarRating } from '../../components/ui/StarRating'
+import { ArrowLeft, Send } from 'lucide-react'
 
 export function VotePage() {
   const { id } = useParams<{ id: string }>()
@@ -46,28 +46,25 @@ export function VotePage() {
     return map
   }, [myExistingRatings])
 
-  const unvotedPlayers = useMemo(() =>
+  const voteQueue = useMemo(() =>
     players.filter(p => !existingVotedIds.has(p.profile_id)),
     [players, existingVotedIds]
   )
 
   useEffect(() => {
-    if (!players.length || !myExistingRatings.length) return
-    const firstUnratedIndex = players.findIndex(p => !existingVotedIds.has(p.profile_id))
-    if (firstUnratedIndex >= 0) {
-      setCurrentIndex(firstUnratedIndex)
-    }
+    if (!players.length) return
+    const firstIndex = voteQueue.length > 0
+      ? players.findIndex(p => p.profile_id === voteQueue[0].profile_id)
+      : 0
+    setCurrentIndex(firstIndex >= 0 ? firstIndex : 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players.length, myExistingRatings.length])
+  }, [voteQueue.length])
 
   const currentPlayer = players[currentIndex]
-  const isAlreadyVoted = currentPlayer && existingVotedIds.has(currentPlayer.profile_id)
   const isJustVoted = currentPlayer && submitted.has(currentPlayer.profile_id)
-  const isVoted = isAlreadyVoted || isJustVoted
+  const isVoted = currentPlayer && (existingVotedIds.has(currentPlayer.profile_id) || isJustVoted)
   const hasRating = !!ratings[currentPlayer?.profile_id]
-  const allVoted = players.length > 0 && players.every(p =>
-    existingVotedIds.has(p.profile_id) || submitted.has(p.profile_id)
-  )
+  const allVoted = voteQueue.length === 0 || voteQueue.every(p => submitted.has(p.profile_id))
 
   async function handleSubmitVote(): Promise<boolean> {
     if (!id || !currentPlayer || !hasRating || !profile) return false
@@ -88,29 +85,18 @@ export function VotePage() {
   }
 
   async function handleSubmitAndNext() {
-    if (isAlreadyVoted) {
-      advanceToNext()
-      return
-    }
     const ok = await handleSubmitVote()
     if (ok) advanceToNext()
   }
 
   function advanceToNext() {
-    if (currentIndex < players.length - 1) {
+    const remaining = players.filter(p => !submitted.has(p.profile_id) && !existingVotedIds.has(p.profile_id))
+    if (remaining.length === 0) return
+    const nextIndex = players.findIndex(p => p.profile_id === remaining[0].profile_id)
+    if (nextIndex >= 0 && nextIndex !== currentIndex) {
       setAnimClass('animate-slide-left')
       setTimeout(() => {
-        setCurrentIndex(i => i + 1)
-        setAnimClass('')
-      }, 200)
-    }
-  }
-
-  function handlePrev() {
-    if (currentIndex > 0) {
-      setAnimClass('animate-slide-right')
-      setTimeout(() => {
-        setCurrentIndex(i => i - 1)
+        setCurrentIndex(nextIndex)
         setAnimClass('')
       }, 200)
     }
@@ -141,7 +127,7 @@ export function VotePage() {
     </div>
   )
 
-  if (allVoted && unvotedPlayers.length === 0) {
+  if (allVoted) {
     return (
       <div className="max-w-lg mx-auto text-center py-12">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -157,7 +143,8 @@ export function VotePage() {
     )
   }
 
-  const existingVote = currentPlayer ? existingVoteData[currentPlayer.profile_id] : null
+  const totalQueue = voteQueue.length
+  const queueIndex = voteQueue.findIndex(p => p.profile_id === currentPlayer?.profile_id)
 
   return (
     <div className="max-w-lg mx-auto">
@@ -166,11 +153,11 @@ export function VotePage() {
           <ArrowLeft size={20} /> Voltar
         </button>
         <div className="flex items-center gap-1 text-sm text-gray-400">
-          {players.map((_, i) => (
-            <div key={i} className={`w-2 h-2 rounded-full ${i === currentIndex ? 'bg-green-500' : existingVotedIds.has(players[i].profile_id) || submitted.has(players[i].profile_id) ? 'bg-green-200' : 'bg-gray-200'}`} />
+          {voteQueue.map((p, i) => (
+            <div key={p.profile_id} className={`w-2 h-2 rounded-full ${i === queueIndex ? 'bg-green-500' : submitted.has(p.profile_id) ? 'bg-green-200' : 'bg-gray-200'}`} />
           ))}
         </div>
-        <span className="text-sm text-gray-400">{currentIndex + 1} de {players.length}</span>
+        <span className="text-sm text-gray-400">{queueIndex + 1} de {totalQueue}</span>
       </div>
 
       <div
@@ -179,11 +166,15 @@ export function VotePage() {
         onTouchEnd={handleTouchEnd}
         className={`bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center select-none ${animClass}`}
       >
-        <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-4xl mx-auto mb-4 shadow-md">
-          {currentPlayer.profile?.name?.charAt(0).toUpperCase() || '?'}
-        </div>
+        {currentPlayer.profile?.avatar_url ? (
+          <img src={currentPlayer.profile.avatar_url} alt="" className="w-24 h-24 rounded-full mx-auto mb-4 shadow-md object-cover ring-4 ring-green-200" />
+        ) : (
+          <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-4xl mx-auto mb-4 shadow-md ring-4 ring-green-200">
+            {currentPlayer.profile?.name?.charAt(0).toUpperCase() || '?'}
+          </div>
+        )}
 
-        <h2 className="text-xl font-bold mb-1">{currentPlayer.profile?.name}</h2>
+        <h2 className="text-xl font-bold mb-1 text-gray-900">{currentPlayer.profile?.name}</h2>
 
         <div className="flex items-center justify-center gap-3 bg-gray-50 rounded-xl p-3 mb-6">
           <div className="text-center">
@@ -221,73 +212,47 @@ export function VotePage() {
           )}
         </div>
 
-        {isAlreadyVoted && existingVote ? (
-          <div className="mb-4 p-4 bg-green-50 rounded-xl">
-            <div className="flex items-center justify-center gap-1 text-green-700 text-sm font-medium mb-2">
-              <Check size={16} /> Voto registrado
+        <>
+          <div className="mb-4">
+            <p className="text-sm text-gray-500 mb-3">Qual nota {currentPlayer.profile?.name?.split(' ')[0]} merece?</p>
+            <div className="flex justify-center">
+              <StarRating
+                value={ratings[currentPlayer.profile_id] || 0}
+                onChange={(val) => {
+                  if (!isVoted) setRatings(prev => ({ ...prev, [currentPlayer.profile_id]: val }))
+                }}
+                size="lg"
+              />
             </div>
-            <DisplayRating value={existingVote.rating} size="md" />
-            <p className="text-sm text-gray-700 mt-2">{existingVote.comment || 'Sem comentário'}</p>
+            {ratings[currentPlayer.profile_id] > 0 && (
+              <p className="text-sm font-medium text-gray-500 mt-1">{ratings[currentPlayer.profile_id].toFixed(1)}</p>
+            )}
           </div>
-        ) : (
-          <>
-            <div className="mb-4">
-              <p className="text-sm text-gray-500 mb-3">Qual nota {currentPlayer.profile?.name?.split(' ')[0]} merece?</p>
-              <div className="flex justify-center">
-                <StarRating
-                  value={ratings[currentPlayer.profile_id] || 0}
-                  onChange={(val) => {
-                    if (!isVoted) setRatings(prev => ({ ...prev, [currentPlayer.profile_id]: val }))
-                  }}
-                  size="lg"
-                />
-              </div>
-              {ratings[currentPlayer.profile_id] > 0 && (
-                <p className="text-sm font-medium text-gray-500 mt-1">{ratings[currentPlayer.profile_id].toFixed(1)}</p>
-              )}
-            </div>
 
-            <input
-              type="text"
-              placeholder="Comentário anônimo (opcional)"
-              value={comments[currentPlayer.profile_id] || ''}
-              onChange={e => setComments(prev => ({ ...prev, [currentPlayer.profile_id]: e.target.value }))}
-              disabled={isVoted}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none mb-4 disabled:bg-gray-100"
-            />
-          </>
-        )}
+          <input
+            type="text"
+            placeholder="Comentário anônimo (opcional)"
+            value={comments[currentPlayer.profile_id] || ''}
+            onChange={e => setComments(prev => ({ ...prev, [currentPlayer.profile_id]: e.target.value }))}
+            disabled={isVoted}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none mb-4 disabled:bg-gray-100 text-gray-900"
+          />
+        </>
 
-        {isAlreadyVoted ? (
-          <button onClick={handleSubmitAndNext}
-            className="w-full bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 transition font-medium flex items-center justify-center gap-2">
-            <ChevronLeft size={18} className="rotate-180" />
-            {currentIndex < players.length - 1 ? 'Próximo jogador' : 'Finalizar'}
-          </button>
-        ) : isJustVoted ? (
+        {isJustVoted ? (
           <div className="bg-green-50 text-green-700 py-3 rounded-xl font-medium text-center">
-            Voto enviado! {currentIndex < players.length - 1 ? 'Avançando...' : ''}
+            Voto enviado! {queueIndex < totalQueue - 1 ? 'Avançando...' : ''}
           </div>
         ) : (
           <button onClick={handleSubmitAndNext} disabled={!hasRating || submitting}
             className="w-full bg-purple-600 text-white py-3 rounded-xl hover:bg-purple-700 transition font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-            <Send size={18} /> {submitting ? 'Enviando...' : currentIndex < players.length - 1 ? 'Enviar e Próximo' : 'Enviar Voto'}
+            <Send size={18} /> {submitting ? 'Enviando...' : queueIndex < totalQueue - 1 ? 'Enviar e Próximo' : 'Enviar Voto'}
           </button>
         )}
-      </div>
-
-      <div className="flex items-center justify-between mt-6">
-        {currentIndex > 0 && (
-          <button onClick={handlePrev}
-            className="flex items-center gap-1 px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition">
-            <ChevronLeft size={18} /> Anterior
-          </button>
-        )}
-        <div className="flex-1" />
       </div>
 
       <p className="text-center text-xs text-gray-400 mt-4">
-        {isAlreadyVoted ? 'Você já avaliou este jogador' : !isVoted ? 'Dê uma nota e clique em enviar' : 'Avançando para o próximo...'}
+        {isVoted ? 'Avançando para o próximo...' : 'Dê uma nota e clique em enviar'}
       </p>
 
       <style>{`

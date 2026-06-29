@@ -251,6 +251,25 @@ export function useCalculateAwards() {
   })
 }
 
+export function useVoterPenalties(matchId: string | undefined) {
+  return useQuery({
+    queryKey: [...queryKeys.matches.detail(matchId!), 'voter_penalties'],
+    queryFn: () => matchService.getVoterPenalties(matchId!),
+    enabled: !!matchId,
+  })
+}
+
+export function useClearVoterPenalty() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ matchId, profileId }: { matchId: string; profileId: string }) =>
+      matchService.clearVoterPenalty(matchId, profileId),
+    onSuccess: (_, { matchId }) => {
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.matches.detail(matchId), 'voter_penalties'] })
+    },
+  })
+}
+
 export function useCreateTeam() {
   const queryClient = useQueryClient()
   return useMutation({
