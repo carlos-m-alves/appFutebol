@@ -3,16 +3,23 @@ import { useAuth } from '../../contexts/AuthContext'
 import { updateProfile } from '../../services/api'
 import { uploadAvatar } from '../../services/storage'
 import { User, Save, Camera } from 'lucide-react'
-import { POSITION_LABELS, type PlayerPosition } from '../../types'
+import { POSITION_LABELS, DOMINANT_FOOT_LABELS, type PlayerPosition, type DominantFoot } from '../../types'
 
 const POSITIONS: { value: PlayerPosition; label: string }[] = Object.entries(POSITION_LABELS).map(([value, label]) => ({
   value: value as PlayerPosition, label
+}))
+
+const FEET: { value: DominantFoot; label: string }[] = Object.entries(DOMINANT_FOOT_LABELS).map(([value, label]) => ({
+  value: value as DominantFoot, label
 }))
 
 export function ProfilePage() {
   const { profile } = useAuth()
   const [name, setName] = useState(profile?.name || '')
   const [position, setPosition] = useState(profile?.position || '')
+  const [birthDate, setBirthDate] = useState(profile?.birth_date?.split('T')[0] || '')
+  const [weight, setWeight] = useState(profile?.weight?.toString() || '')
+  const [dominantFoot, setDominantFoot] = useState(profile?.dominant_foot || '')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -45,7 +52,14 @@ export function ProfilePage() {
       if (avatarFile) {
         avatar_url = await uploadAvatar(avatarFile, profile.id)
       }
-      await updateProfile(profile.id, { name, avatar_url, position: position || null })
+      await updateProfile(profile.id, {
+        name,
+        avatar_url,
+        position: position || null,
+        birth_date: birthDate || null,
+        weight: weight ? Number(weight) : null,
+        dominant_foot: dominantFoot || null,
+      })
       setAvatarFile(null)
       setAvatarPreview(null)
       setMessage('Perfil atualizado com sucesso!')
@@ -95,6 +109,30 @@ export function ProfilePage() {
               <option value="">Selecione uma posição</option>
               {POSITIONS.map(p => (
                 <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
+            <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none text-gray-900" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
+            <input type="number" value={weight} onChange={e => setWeight(e.target.value)}
+              step="0.1" min="0" max="300" placeholder="Ex: 75.5"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none text-gray-900" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Pé Dominante</label>
+            <select value={dominantFoot} onChange={e => setDominantFoot(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none text-gray-900">
+              <option value="">Selecione</option>
+              {FEET.map(f => (
+                <option key={f.value} value={f.value}>{f.label}</option>
               ))}
             </select>
           </div>

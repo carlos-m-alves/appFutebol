@@ -914,7 +914,7 @@ export async function getProfile(id: string): Promise<Profile | null> {
   return data
 }
 
-export async function updateProfile(profileId: string, updates: { name?: string; avatar_url?: string | null; position?: string | null }): Promise<void> {
+export async function updateProfile(profileId: string, updates: { name?: string; avatar_url?: string | null; position?: string | null; birth_date?: string | null; weight?: number | null; dominant_foot?: string | null }): Promise<void> {
   const clean: Record<string, unknown> = {}
   if (updates.name !== undefined) {
     const n = sanitizeText(updates.name, 100)
@@ -926,6 +926,15 @@ export async function updateProfile(profileId: string, updates: { name?: string;
   }
   if (updates.position !== undefined) {
     clean.position = updates.position || null
+  }
+  if (updates.birth_date !== undefined) {
+    clean.birth_date = updates.birth_date || null
+  }
+  if (updates.weight !== undefined) {
+    clean.weight = updates.weight
+  }
+  if (updates.dominant_foot !== undefined) {
+    clean.dominant_foot = updates.dominant_foot || null
   }
   const { error } = await supabase
     .from('profiles')
@@ -1169,6 +1178,31 @@ export const financeService = {
       balanceHistory,
     }
   },
+}
+
+export async function getPlayerGroupStats(profileId: string, groupId: string): Promise<{
+  goals: number
+  assists: number
+  own_goals: number
+  nutmeg_given: number
+  nutmeg_done: number
+  matchesPlayed: number
+  matchesWon: number
+  avgRating: number | null
+  last3: ('win' | 'draw' | 'loss')[]
+}> {
+  const [playerStats, rankingStats] = await Promise.all([
+    matchService.getPlayerStats(profileId, groupId),
+    rankingService.getStats(groupId, { playerId: profileId }),
+  ])
+
+  const playerRanking = rankingStats[0]
+  const last3 = playerRanking?.last3 ?? []
+
+  return {
+    ...playerStats,
+    last3,
+  }
 }
 
 export { CATEGORY_LABELS }

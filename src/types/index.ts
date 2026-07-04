@@ -8,6 +8,14 @@ export const POSITION_LABELS: Record<PlayerPosition, string> = {
   ATACANTE: 'Atacante',
 }
 
+export type DominantFoot = 'DIREITO' | 'ESQUERDO' | 'AMBOS'
+
+export const DOMINANT_FOOT_LABELS: Record<DominantFoot, string> = {
+  DIREITO: 'Direito',
+  ESQUERDO: 'Esquerdo',
+  AMBOS: 'Ambos',
+}
+
 export interface Profile {
   id: string
   auth_user_id: string
@@ -15,6 +23,9 @@ export interface Profile {
   email: string
   avatar_url: string | null
   position: PlayerPosition | null
+  birth_date: string | null
+  weight: number | null
+  dominant_foot: DominantFoot | null
   created_at: string
 }
 

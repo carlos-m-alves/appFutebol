@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { groupService, matchService, getProfile, groupJoinRequestService } from '../services/api'
+import { groupService, matchService, getProfile, groupJoinRequestService, getPlayerGroupStats } from '../services/api'
 import { queryKeys } from './queryKeys'
 
 export function useGroupMembers(groupId: string | undefined) {
@@ -35,5 +35,14 @@ export function useProfile(profileId: string | undefined) {
     queryFn: () => getProfile(profileId!),
     enabled: !!profileId,
     staleTime: 10 * 60 * 1000,
+  })
+}
+
+export function usePlayerGroupStats(profileId: string | undefined, groupId: string | undefined) {
+  return useQuery({
+    queryKey: [...queryKeys.groups.myStats(profileId!, groupId), 'full'],
+    queryFn: () => getPlayerGroupStats(profileId!, groupId!),
+    enabled: !!profileId && !!groupId,
+    staleTime: 5 * 60 * 1000,
   })
 }
