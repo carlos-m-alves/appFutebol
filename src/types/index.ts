@@ -25,6 +25,7 @@ export interface Group {
   access_code: string
   created_by: string
   created_at: string
+  image_url: string | null
 }
 
 export interface GroupMember {

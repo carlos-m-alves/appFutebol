@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
 import { supabase } from '../../lib/supabase'
-import { useMatch, useMatchTeams, useMatchPlayers, useMatchResults, useMatchConfirmations, useMatchAwards, useMatchRatings, useMatchGroupMembers, useUpdateMatchStatus, useMatchConfirmAttendance, useRemoveMatchPlayer, useAddMatchPlayer, useUpdatePlayerTeam, useSaveMatchPlayers, useSaveMatchResults, useCalculateAwards, useCreateTeam, useDeleteTeam, useAddGuestPlayer, useRemoveMatchPlayerById, useUpdateMatchPlayerTeamById, useUpdateGuestPlayerStats, useVoterPenalties, useClearVoterPenalty } from '../../hooks/useMatches'
+import { useMatch, useMatchTeams, useMatchPlayers, useMatchResults, useMatchConfirmations, useMatchAwards, useMatchRatings, useMatchGroupMembers, useUpdateMatchStatus, useMatchConfirmAttendance, useMatchRemoveAttendance, useRemoveMatchPlayer, useAddMatchPlayer, useUpdatePlayerTeam, useSaveMatchPlayers, useSaveMatchResults, useCalculateAwards, useCreateTeam, useDeleteTeam, useAddGuestPlayer, useRemoveMatchPlayerById, useUpdateMatchPlayerTeamById, useUpdateGuestPlayerStats, useVoterPenalties, useClearVoterPenalty } from '../../hooks/useMatches'
 import type { Team, MatchPlayer, MatchAward, PlayerRating } from '../../types'
 import { balanceTeams } from '../../services/teamBalancer'
 import { MATCH_STATUS } from '../../lib/constants'
@@ -11,7 +11,7 @@ import { DisplayRating } from '../../components/ui/StarRating'
 import { useToast } from '../../components/ui/Toast'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { FifaErrorScreen } from '../../components/ui/FifaErrorScreen'
-import { Calendar, MapPin, Users, Trophy, Star, Swords, Award, ThumbsDown, Goal, UserPlus, Check, Plus, Trash2, Shuffle } from 'lucide-react'
+import { Calendar, MapPin, Users, Trophy, Star, Swords, Award, ThumbsDown, Goal, UserPlus, Check, Plus, Trash2, Shuffle, X } from 'lucide-react'
 
 export function MatchDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -30,6 +30,7 @@ export function MatchDetailPage() {
 
   const { mutateAsync: updateStatus } = useUpdateMatchStatus()
   const { mutateAsync: confirmAttendance } = useMatchConfirmAttendance()
+  const { mutateAsync: removeAttendance } = useMatchRemoveAttendance()
   const { mutateAsync: calculateAwards } = useCalculateAwards()
   const { data: voterPenalties = [] } = useVoterPenalties(awards ? id : undefined)
   const { mutateAsync: clearPenalty } = useClearVoterPenalty()
@@ -118,34 +119,40 @@ export function MatchDetailPage() {
           </div>
 
           <div className="flex gap-2">
-            {profile && !isParticipant && match.status !== 'FINISHED' && match.status !== 'CANCELLED' && (
-              <button onClick={() => id && profile && confirmAttendance({ matchId: id, profileId: profile.id })}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm flex items-center gap-1">
-                <Check size={16} /> Confirmar Presença
-              </button>
-            )}
-            {profile && isParticipant && match.status !== 'FINISHED' && match.status !== 'CANCELLED' && (
-              <span className="bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm flex items-center gap-1">
-                <Check size={16} /> Presença Confirmada
-              </span>
-            )}
-            {isAdmin && match.status === 'SCHEDULED' && (
-              <>
-                <button onClick={async () => {
-                  if (!id) return
-                  if (teams.length < 2) { setStartError('É necessário ter pelo menos 2 times para iniciar a partida.'); return }
-                  const teamsWithPlayers = teams.filter(t => players.some(p => p.team_id === t.id))
-                  if (teamsWithPlayers.length < 2) { setStartError('Cada time precisa ter pelo menos 1 jogador.'); return }
-                  updateStatus({ matchId: id, status: 'IN_PROGRESS' })
-                }} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm">
-                  Iniciar Partida
+            {profile && match.status !== 'FINISHED' && match.status !== 'CANCELLED' && (
+              isParticipant ? (
+                <button onClick={() => id && profile && removeAttendance({ matchId: id, profileId: profile.id })}
+                  className="bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition text-sm flex items-center gap-1">
+                  <X size={16} /> Remover Presença
                 </button>
-                <button onClick={async () => { if (confirm('Cancelar esta partida?')) { if (id) updateStatus({ matchId: id, status: 'CANCELLED' }) } }}
-                  className="bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition text-sm">
-                  Cancelar
+              ) : (
+                <button onClick={() => id && profile && confirmAttendance({ matchId: id, profileId: profile.id })}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm flex items-center gap-1">
+                  <Check size={16} /> Confirmar Presença
                 </button>
-              </>
+              )
             )}
+              {isAdmin && match.status === 'SCHEDULED' && (
+                <>
+                  <button onClick={async () => {
+                    if (!id) return
+                    if (teams.length < 2) { setStartError('É necessário ter pelo menos 2 times para iniciar a partida.'); return }
+                    const emptyTeams = teams.filter(t => !players.some(p => p.team_id === t.id))
+                    if (emptyTeams.length > 0) {
+                      const names = emptyTeams.map(t => t.name).join(', ')
+                      setStartError(`O(s) time(s) ${names} não possui(em) nenhum jogador. Adicione jogadores a todos os times antes de iniciar.`)
+                      return
+                    }
+                    updateStatus({ matchId: id, status: 'IN_PROGRESS' })
+                  }} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm">
+                    Iniciar Partida
+                  </button>
+                  <button onClick={async () => { if (confirm('Cancelar esta partida?')) { if (id) updateStatus({ matchId: id, status: 'CANCELLED' }) } }}
+                    className="bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition text-sm">
+                    Cancelar
+                  </button>
+                </>
+              )}
           </div>
           {isAdmin && match.status === 'IN_PROGRESS' && (
             <button onClick={() => id && updateStatus({ matchId: id, status: 'FINISHED' })} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm">
@@ -156,7 +163,7 @@ export function MatchDetailPage() {
       </div>
 
       {awards && (
-        <AwardsPanel awards={awards} />
+        <AwardsPanel awards={awards} players={players} />
       )}
 
       {awards && profile && (() => {
@@ -977,11 +984,20 @@ function ManagePlayersPanel({ matchId, groupId, players, teams, isAdmin }: {
   )
 }
 
-function AwardsPanel({ awards }: { awards: MatchAward }) {
+function AwardsPanel({ awards, players }: { awards: MatchAward; players: MatchPlayer[] }) {
+  function getPlayerStats(profileId: string | null | undefined) {
+    if (!profileId) return { goals: 0, assists: 0 }
+    const mp = players.find(p => p.profile_id === profileId)
+    return { goals: mp?.goals ?? 0, assists: mp?.assists ?? 0 }
+  }
+
+  const scorerStats = getPlayerStats(awards.top_scorer_profile_id)
+  const assistStats = getPlayerStats(awards.top_assist_profile_id)
+
   const awards_list = [
     { label: 'Craque da Partida', icon: <Award size={24} />, color: 'text-yellow-500', bg: 'bg-yellow-50', player: awards.best_player, rating: awards.best_player_rating },
-    { label: 'Artilheiro', icon: <Goal size={24} />, color: 'text-green-500', bg: 'bg-green-50', player: awards.top_scorer },
-    { label: 'Rei das Assistências', icon: <UserPlus size={24} />, color: 'text-blue-500', bg: 'bg-blue-50', player: awards.top_assist },
+    { label: 'Artilheiro', icon: <Goal size={24} />, color: 'text-green-500', bg: 'bg-green-50', player: awards.top_scorer, stat: `${scorerStats.goals} gol${scorerStats.goals !== 1 ? 's' : ''}` },
+    { label: 'Rei das Assistências', icon: <UserPlus size={24} />, color: 'text-blue-500', bg: 'bg-blue-50', player: awards.top_assist, stat: `${assistStats.assists} assistência${assistStats.assists !== 1 ? 's' : ''}` },
     { label: 'Bagre da Partida', icon: <ThumbsDown size={24} />, color: 'text-red-500', bg: 'bg-red-50', player: awards.worst_player },
   ]
 
@@ -997,8 +1013,24 @@ function AwardsPanel({ awards }: { awards: MatchAward }) {
             <p className="text-sm font-medium text-gray-600 mb-1">{a.label}</p>
             {a.player ? (
               <>
+                <div className="flex justify-center mb-2">
+                  {a.player.avatar_url ? (
+                    <img src={a.player.avatar_url} alt={a.player.name} className="w-10 h-10 rounded-full object-cover ring-2 ring-white" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style={{ backgroundColor: a.color === 'text-yellow-500' ? '#fef3c7' : a.color === 'text-green-500' ? '#dcfce7' : a.color === 'text-blue-500' ? '#dbeafe' : '#fee2e2' }}>
+                      {a.player.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
                 <p className="font-bold text-gray-900">{a.player.name}</p>
-                {a.rating && <DisplayRating value={a.rating} size="sm" />}
+                {a.rating && i === 0 ? (
+                  <p className="text-sm font-bold text-yellow-600 mt-1">{a.rating.toFixed(1)}</p>
+                ) : a.rating ? (
+                  <DisplayRating value={a.rating} size="sm" />
+                ) : null}
+                {(i === 1 || i === 2) && a.stat && (
+                  <p className={`text-xs font-bold mt-1 ${i === 1 ? 'text-green-600' : 'text-blue-600'}`}>{a.stat}</p>
+                )}
               </>
             ) : (
               <p className="text-sm text-gray-400">-</p>
