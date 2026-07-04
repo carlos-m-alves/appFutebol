@@ -6,7 +6,7 @@ import {
   useMatch, useMatchesList, useMatchTeams, useMatchPlayers,
   useMatchResults, useMatchConfirmations, useMatchAwards, useMatchRatings,
 } from '../useMatches'
-import type { Match, MatchPlayer, Team, MatchResult, MatchConfirmation, MatchAward, PlayerRating } from '../../types'
+import type { Match, MatchPlayer, Team, MatchResult, MatchConfirmation } from '../../types'
 
 vi.mock('../../services/api', () => ({
   matchService: {

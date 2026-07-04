@@ -40,7 +40,7 @@ beforeEach(() => {
 
 describe('useDashboardData', () => {
   it('returns dashboard data', async () => {
-    const { matchService, getProfile } = await import('../../services/api')
+    const { matchService } = await import('../../services/api')
 
     vi.mocked(matchService.list).mockResolvedValueOnce([mockFinishedMatch])
     vi.mocked(matchService.getAwards).mockResolvedValueOnce(null)

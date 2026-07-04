@@ -46,8 +46,6 @@ export function VotePage() {
     return map
   }, [myExistingRatings])
 
-  const votedCount = existingVotedIds.size + submitted.size
-
   useEffect(() => {
     if (!players.length) return
     setCurrentIndex(0)

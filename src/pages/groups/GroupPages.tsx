@@ -6,7 +6,7 @@ import { groupService, matchService, groupJoinRequestService } from '../../servi
 import { supabase } from '../../lib/supabase'
 import type { Group, GroupMember, Match, Team, MatchResult, MatchPlayer, GroupJoinRequest } from '../../types'
 import { Plus, LogIn, Users, ArrowRight, Trash2, Crown, Shield, Calendar, MapPin, Trophy, ChevronRight, Check, X, Clock, UserPlus, Search, Send, DollarSign, QrCode, Edit3 } from 'lucide-react'
-import { MATCH_STATUS } from '../../lib/constants'
+
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { QRCodeModal } from '../../components/groups/QRCodeModal'
 
@@ -613,14 +613,6 @@ function GroupSettingsContent() {
       await refreshGroups()
       navigate('/groups')
     } catch { alert('Erro ao sair do grupo') }
-  }
-
-  const statusColors: Record<string, string> = {
-    SCHEDULED: 'bg-blue-100 text-blue-800',
-    CONFIRMED: 'bg-green-100 text-green-800',
-    IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
-    FINISHED: 'bg-gray-100 text-gray-800',
-    CANCELLED: 'bg-red-100 text-red-800'
   }
 
   const upcomingAll = matches.filter(m => m.status === 'SCHEDULED' || m.status === 'CONFIRMED').sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
