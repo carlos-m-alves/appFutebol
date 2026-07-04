@@ -1,0 +1,16 @@
+Setup do Projeto appFutebol
+
+Quantidade de versoes realizadas: 9
+
+Branches de versao:
+  dev01 - Configuracao inicial
+  dev02 - Melhorias na autenticacao
+  dv03  - Ajustes de layout
+  dv04  - Funcionalidades de grupo
+  dv05  - Sistema de votacao
+  dv06  - Correcoes de RLS e modais
+  07    - Paginas de financas e componentes
+  dv08  - Correcao de TypeScript (profile_id null)
+  dv09  - Correcao de todos os erros de TypeScript para build
+
+Total de commits: 17
