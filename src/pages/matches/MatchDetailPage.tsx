@@ -435,7 +435,7 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
       const registered = allStats
         .filter(([id]) => players.find(p => p.id === id)?.profile_id)
         .map(([id, data]) => ({
-          profile_id: players.find(p => p.id === id)!.profile_id,
+          profile_id: players.find(p => p.id === id)!.profile_id!,
           team_id: data.teamId || undefined,
           goals: data.goals,
           assists: data.assists,
@@ -1001,7 +1001,7 @@ function VotingPanel({ matchId, profileId, players }: {
     }
   }
 
-  const otherPlayers = players.filter(p => p.profile_id !== profileId && !p.no_show)
+  const otherPlayers = players.filter((p): p is typeof p & { profile_id: string } => p.profile_id !== null && p.profile_id !== profileId && !p.no_show)
 
   return (
     <div className="space-y-4 mb-6">
