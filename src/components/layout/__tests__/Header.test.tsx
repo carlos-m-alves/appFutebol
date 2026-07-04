@@ -74,11 +74,12 @@ describe('Header', () => {
     expect(screen.getAllByText('Quadras')).toHaveLength(2)
   })
 
-  it('hides nav items when no group is selected', () => {
+  it('hides Partidas nav item when no group is selected', () => {
     vi.mocked(useAuth).mockReturnValue(baseAuth)
     vi.mocked(useGroup).mockReturnValue(noGroupContext)
     render(<Header />, { initialEntries: ['/dashboard'] })
-    expect(screen.queryByText('Início')).not.toBeInTheDocument()
+    expect(screen.getByText('Início')).toBeInTheDocument()
+    expect(screen.queryByText('Partidas')).not.toBeInTheDocument()
   })
 
   it('shows profile name with avatar fallback', () => {

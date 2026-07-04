@@ -1,12 +1,11 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
-import { LogOut, Users, Home, Trophy, BarChart3, History, Swords, MapPin } from 'lucide-react'
+import { LogOut, Users, Home, Trophy, BarChart3, Swords, MapPin } from 'lucide-react'
 
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Início', icon: <Home size={18} /> },
   { path: '/matches', label: 'Partidas', icon: <Trophy size={18} /> },
-  { path: '/hall', label: 'Hall da Pelada', icon: <History size={18} /> },
   { path: '/rankings', label: 'Rankings', icon: <BarChart3 size={18} /> },
   { path: '/groups', label: 'Grupos', icon: <Users size={18} /> },
   { path: '/mapa', label: 'Quadras', icon: <MapPin size={18} /> },
@@ -38,27 +37,25 @@ export function Header() {
           </Link>
 
           {/* Desktop nav */}
-          {currentGroup && (
-            <nav className="hidden md:flex items-center gap-1">
-              {NAV_ITEMS.map(item => {
-                const isActive = activePath === item.path || (item.path === '/dashboard' && activePath === '')
-                return (
-                  <Link key={item.path} to={item.path}
-                    className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                      isActive
-                        ? 'text-yellow-400 bg-yellow-400/10'
-                        : 'text-gray-300 hover:text-white hover:bg-white/5'
-                    }`}>
-                    {item.icon}
-                    <span>{item.label}</span>
-                    {isActive && (
-                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-yellow-400 rounded-full" />
-                    )}
-                  </Link>
-                )
-              })}
-            </nav>
-          )}
+          <nav className="hidden md:flex items-center gap-1">
+            {NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup).map(item => {
+              const isActive = activePath === item.path || (item.path === '/dashboard' && activePath === '')
+              return (
+                <Link key={item.path} to={item.path}
+                  className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    isActive
+                      ? 'text-yellow-400 bg-yellow-400/10'
+                      : 'text-gray-300 hover:text-white hover:bg-white/5'
+                  }`}>
+                  {item.icon}
+                  <span>{item.label}</span>
+                  {isActive && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-yellow-400 rounded-full" />
+                  )}
+                </Link>
+              )
+            })}
+          </nav>
 
           {/* Right side */}
           <div className="flex items-center gap-3">
@@ -89,24 +86,22 @@ export function Header() {
         </div>
 
         {/* Mobile nav */}
-        {currentGroup && (
-          <nav className="md:hidden flex items-center gap-1 pb-3 overflow-x-auto scrollbar-none">
-            {NAV_ITEMS.map(item => {
-              const isActive = activePath === item.path || (item.path === '/dashboard' && activePath === '')
-              return (
-                <Link key={item.path} to={item.path}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium whitespace-nowrap rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'text-yellow-400 bg-yellow-400/10'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}>
-                  {item.icon}
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
-          </nav>
-        )}
+        <nav className="md:hidden flex items-center gap-1 pb-3 overflow-x-auto scrollbar-none">
+          {NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup).map(item => {
+            const isActive = activePath === item.path || (item.path === '/dashboard' && activePath === '')
+            return (
+              <Link key={item.path} to={item.path}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium whitespace-nowrap rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'text-yellow-400 bg-yellow-400/10'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}>
+                {item.icon}
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </nav>
       </div>
     </header>
   )

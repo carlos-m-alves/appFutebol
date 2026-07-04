@@ -1,37 +1,6 @@
--- ============================================
--- MIGRATION 00009: Voter penalties and
--- performance-weighted craque scoring
--- ============================================
+-- Remove minimum rating count requirement for awards.
+-- Even with few votes, best/worst player should be selected.
 
--- 1. VOTER PENALTIES TABLE
-create table if not exists public.voter_penalties (
-  id uuid primary key default uuid_generate_v4(),
-  match_id uuid not null references public.matches(id) on delete cascade,
-  profile_id uuid not null references public.profiles(id) on delete cascade,
-  warned boolean not null default false,
-  penalty_count int not null default 0,
-  created_at timestamptz not null default now(),
-  unique(match_id, profile_id)
-);
-
-alter table public.voter_penalties enable row level security;
-
-create policy "Players can read own penalties"
-  on public.voter_penalties for select
-  using (
-    profile_id = (select id from public.profiles where auth_user_id = auth.uid())
-  );
-
-create policy "Players can update own penalties"
-  on public.voter_penalties for update
-  using (
-    profile_id = (select id from public.profiles where auth_user_id = auth.uid())
-  );
-
--- 2. ALTER best_player_rating TO SUPPORT WEIGHTED SCORES (max 99.9)
-alter table public.match_awards alter column best_player_rating type numeric(3,1);
-
--- 3. REPLACE calculate_match_awards WITH WEIGHTED SCORING + BIAS DETECTION
 create or replace function public.calculate_match_awards(p_match_id uuid)
 returns void
 language plpgsql
@@ -89,7 +58,7 @@ begin
     end if;
   end loop;
 
-  -- 3. Best player (performance-weighted score, all votes count)
+  -- 3. Best player (performance-weighted score, any number of votes)
   select
     sub.rated_profile_id,
     sub.weighted_score
@@ -130,7 +99,7 @@ begin
   order by assists desc
   limit 1;
 
-  -- 6. Worst player -- first try by lowest average rating
+  -- 6. Worst player (any number of votes, exclude no_show; fallback to no_show)
   select rated_profile_id
   into v_worst_player
   from public.player_ratings

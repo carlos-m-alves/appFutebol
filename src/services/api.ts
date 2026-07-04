@@ -2,7 +2,8 @@ import { supabase } from '../lib/supabase'
 import { sanitizeText, sanitizeOptional } from '../lib/sanitize'
 import type {
   Group, GroupMember, Match, MatchConfirmation, Team,
-  MatchPlayer, MatchResult, PlayerRating, MatchAward, RecurringSchedule, Profile, GroupJoinRequest, VoterPenalty
+  MatchPlayer, MatchResult, PlayerRating, MatchAward, RecurringSchedule, Profile, GroupJoinRequest, VoterPenalty,
+  GroupFinanceConfig, PlayerFeeSettings, Payment, GroupExpense, FinanceSummary
 } from '../types'
 
 export const groupService = {
@@ -107,6 +108,14 @@ export const groupService = {
       .eq('group_id', groupId)
       .eq('profile_id', profileId)
     if (error) throw error
+  },
+
+  async update(groupId: string, updates: Partial<Group>) {
+    const { error } = await supabase
+      .from('groups')
+      .update(updates)
+      .eq('id', groupId)
+    if (error) throw error
   }
 }
 
@@ -181,7 +190,7 @@ export const matchService = {
     return data ?? []
   },
 
-  async listWithResults(groupId: string): Promise<(Match & { results: (MatchResult & { team: Team })[]; players: MatchPlayer[] })[]> {
+  async listWithResults(groupId: string): Promise<(Match & { results: (MatchResult & { team: Team })[]; players: MatchPlayer[]; teams: Team[]; awards: MatchAward | null })[]> {
     const { data: matches } = await supabase
       .from('matches')
       .select('*')
@@ -192,15 +201,19 @@ export const matchService = {
 
     const matchIds = matches.map(m => m.id)
 
-    const [results, players] = await Promise.all([
+    const [results, players, teams, awards] = await Promise.all([
       supabase.from('match_results').select('*, team:teams(*)').in('match_id', matchIds),
       supabase.from('match_players').select('*, profile:profiles(*)').in('match_id', matchIds),
+      supabase.from('teams').select('*').in('match_id', matchIds),
+      supabase.from('match_awards').select('*, best_player:profiles!best_player_profile_id(*), top_scorer:profiles!top_scorer_profile_id(*), top_assist:profiles!top_assist_profile_id(*), worst_player:profiles!worst_player_profile_id(*)').in('match_id', matchIds),
     ])
 
     return matches.map(m => ({
       ...m,
       results: (results.data ?? []).filter(r => r.match_id === m.id),
-      players: (players.data ?? []).filter(p => p.match_id === m.id)
+      players: (players.data ?? []).filter(p => p.match_id === m.id),
+      teams: (teams.data ?? []).filter(t => t.match_id === m.id),
+      awards: (awards.data ?? []).find(a => a.match_id === m.id) || null,
     }))
   },
 
@@ -360,7 +373,7 @@ export const matchService = {
   },
 
   async updateGuestPlayerStats(players: {
-    id: string; team_id?: string; goals: number; assists: number; own_goals: number;
+    id: string; match_id?: string; team_id?: string; goals: number; assists: number; own_goals: number;
     nutmeg_given: number; nutmeg_done: number; no_show: boolean
   }[]) {
     if (players.length === 0) return
@@ -369,6 +382,7 @@ export const matchService = {
       .upsert(
         players.map(p => ({
           id: p.id,
+          match_id: p.match_id,
           team_id: p.team_id,
           goals: p.goals ?? 0,
           assists: p.assists ?? 0,
@@ -383,12 +397,14 @@ export const matchService = {
   },
 
   async saveResults(matchId: string, results: { team_id: string; score: number }[]) {
-    await supabase.from('match_results').delete().eq('match_id', matchId)
-    if (results.length > 0) {
-      await supabase.from('match_results').insert(
-        results.map(r => ({ match_id: matchId, team_id: r.team_id, score: r.score }))
+    if (results.length === 0) return
+    const { error } = await supabase
+      .from('match_results')
+      .upsert(
+        results.map(r => ({ match_id: matchId, team_id: r.team_id, score: r.score })),
+        { onConflict: 'match_id,team_id', ignoreDuplicates: false }
       )
-    }
+    if (error) throw error
   },
 
   async getResults(matchId: string): Promise<MatchResult[]> {
@@ -688,16 +704,6 @@ export const matchService = {
   }
 }
 
-export interface MatchStats {
-  player_id: string
-  player_name: string
-  player_avatar: string | null
-  goals: number
-  assists: number
-  matches_played: number
-  avg_rating: number | null
-}
-
 export interface PlayerRankingStats {
   player_id: string
   player_name: string
@@ -914,3 +920,242 @@ export async function updateProfile(profileId: string, updates: { name?: string;
     .eq('id', profileId)
   if (error) throw error
 }
+
+const CATEGORY_LABELS: Record<string, string> = {
+  FIELD: 'Campo',
+  REFEREE: 'Arbitragem',
+  EQUIPMENT: 'Equipamento',
+  SNACKS: 'Confraternização',
+  OTHER: 'Outros',
+}
+
+export const financeService = {
+  async getConfig(groupId: string): Promise<GroupFinanceConfig | null> {
+    const { data } = await supabase
+      .from('group_finance_config')
+      .select('*')
+      .eq('group_id', groupId)
+      .maybeSingle()
+    return data
+  },
+
+  async upsertConfig(groupId: string, data: {
+    default_monthly_fee?: number
+    default_match_fee?: number
+    pix_key?: string | null
+  }): Promise<void> {
+    const { data: existing } = await supabase
+      .from('group_finance_config')
+      .select('id')
+      .eq('group_id', groupId)
+      .maybeSingle()
+
+    if (existing) {
+      const { error } = await supabase
+        .from('group_finance_config')
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq('group_id', groupId)
+      if (error) throw error
+    } else {
+      const { error } = await supabase
+        .from('group_finance_config')
+        .insert({ group_id: groupId, ...data })
+      if (error) throw error
+    }
+  },
+
+  async getPlayerFees(groupId: string): Promise<(PlayerFeeSettings & { group_member: GroupMember & { profile: Profile } })[]> {
+    const { data } = await supabase
+      .from('player_fee_settings')
+      .select('*, group_member:group_members!inner(*, profile:profiles(*))')
+      .eq('group_member.group_id', groupId)
+    return data ?? []
+  },
+
+  async upsertPlayerFee(groupMemberId: string, data: {
+    is_monthly_player?: boolean
+    monthly_fee?: number | null
+    match_fee?: number | null
+  }): Promise<void> {
+    const { data: existing } = await supabase
+      .from('player_fee_settings')
+      .select('id')
+      .eq('group_member_id', groupMemberId)
+      .maybeSingle()
+
+    if (existing) {
+      const { error } = await supabase
+        .from('player_fee_settings')
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq('id', existing.id)
+      if (error) throw error
+    } else {
+      const { error } = await supabase
+        .from('player_fee_settings')
+        .insert({ group_member_id: groupMemberId, ...data })
+      if (error) throw error
+    }
+  },
+
+  async getPayments(groupId: string): Promise<(Payment & { group_member: GroupMember & { profile: Profile }; paid_by_profile?: Profile; match?: Match })[]> {
+    const { data } = await supabase
+      .from('payments')
+      .select('*, group_member:group_members!inner(*, profile:profiles(*)), paid_by_profile:profiles!paid_by(*), match:matches(*)')
+      .eq('group_member.group_id', groupId)
+      .order('paid_at', { ascending: false })
+    return data ?? []
+  },
+
+  async recordPayment(data: {
+    group_member_id: string
+    match_id?: string | null
+    payment_type: 'MONTHLY' | 'MATCH'
+    amount: number
+    reference_month?: string | null
+    paid_by: string
+    notes?: string | null
+  }): Promise<void> {
+    const { error } = await supabase
+      .from('payments')
+      .insert({
+        group_member_id: data.group_member_id,
+        match_id: data.match_id ?? null,
+        payment_type: data.payment_type,
+        amount: data.amount,
+        reference_month: data.reference_month ?? null,
+        paid_by: data.paid_by,
+        notes: data.notes ?? null,
+      })
+    if (error) throw error
+  },
+
+  async deletePayment(paymentId: string): Promise<void> {
+    const { error } = await supabase
+      .from('payments')
+      .delete()
+      .eq('id', paymentId)
+    if (error) throw error
+  },
+
+  async getExpenses(groupId: string): Promise<(GroupExpense & { created_by_profile: Profile })[]> {
+    const { data } = await supabase
+      .from('group_expenses')
+      .select('*, created_by_profile:profiles!created_by(*)')
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: false })
+    return data ?? []
+  },
+
+  async addExpense(data: {
+    group_id: string
+    description: string
+    amount: number
+    category: string
+    created_by: string
+  }): Promise<void> {
+    const cleanDesc = sanitizeText(data.description, 300)
+    if (!cleanDesc) throw new Error('Descrição inválida')
+    const { error } = await supabase
+      .from('group_expenses')
+      .insert({
+        group_id: data.group_id,
+        description: cleanDesc,
+        amount: data.amount,
+        category: data.category,
+        created_by: data.created_by,
+      })
+    if (error) throw error
+  },
+
+  async deleteExpense(expenseId: string): Promise<void> {
+    const { error } = await supabase
+      .from('group_expenses')
+      .delete()
+      .eq('id', expenseId)
+    if (error) throw error
+  },
+
+  async getSummary(groupId: string): Promise<FinanceSummary> {
+    const [config, members, payments, expenses, fees] = await Promise.all([
+      this.getConfig(groupId),
+      groupService.getMembers(groupId),
+      this.getPayments(groupId),
+      this.getExpenses(groupId),
+      this.getPlayerFees(groupId),
+    ])
+
+    const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0)
+    const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0)
+    const monthlyPayments = payments.filter(p => p.payment_type === 'MONTHLY')
+    const matchPayments = payments.filter(p => p.payment_type === 'MATCH')
+    const monthlyRevenue = monthlyPayments.reduce((sum, p) => sum + Number(p.amount), 0)
+    const matchRevenue = matchPayments.reduce((sum, p) => sum + Number(p.amount), 0)
+
+    const defaultMonthlyFee = config?.default_monthly_fee ?? 0
+    const defaultMatchFee = config?.default_match_fee ?? 0
+
+    const pendingPayments = members.map(m => {
+      const feeSetting = fees.find(f => f.group_member_id === m.id)
+      const isMonthly = feeSetting?.is_monthly_player ?? false
+      const monthlyFee = feeSetting?.monthly_fee ?? defaultMonthlyFee
+      const matchFee = feeSetting?.match_fee ?? defaultMatchFee
+
+      const memberPayments = payments.filter(p => p.group_member_id === m.id)
+      const lastMonthly = memberPayments
+        .filter(p => p.payment_type === 'MONTHLY')
+        .sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime())[0]
+      const lastMatch = memberPayments
+        .filter(p => p.payment_type === 'MATCH')
+        .sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime())[0]
+
+      const now = new Date()
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      const hasPaidMonthly = lastMonthly?.reference_month === currentMonth
+
+      return {
+        group_member_id: m.id,
+        profile_id: m.profile_id,
+        player_name: m.profile?.name ?? 'Desconhecido',
+        player_avatar: m.profile?.avatar_url ?? null,
+        is_monthly_player: isMonthly,
+        monthly_fee: monthlyFee,
+        match_fee: matchFee,
+        last_monthly_payment: lastMonthly?.paid_at ?? null,
+        last_match_payment: lastMatch?.paid_at ?? null,
+        monthly_overdue: isMonthly && !hasPaidMonthly && monthlyFee > 0,
+      }
+    })
+
+    const allDates = [
+      ...payments.map(p => p.paid_at.split('T')[0]),
+      ...expenses.map(e => e.created_at.split('T')[0]),
+    ].filter(Boolean)
+    const uniqueDates = [...new Set(allDates)].sort()
+
+    let runningBalance = 0
+    const balanceHistory = uniqueDates.map(date => {
+      const dayRevenue = payments
+        .filter(p => p.paid_at.startsWith(date))
+        .reduce((sum, p) => sum + Number(p.amount), 0)
+      const dayExpense = expenses
+        .filter(e => e.created_at.startsWith(date))
+        .reduce((sum, e) => sum + Number(e.amount), 0)
+      runningBalance += dayRevenue - dayExpense
+      return { date, balance: runningBalance, revenue: dayRevenue, expense: dayExpense }
+    })
+
+    return {
+      totalRevenue,
+      totalExpenses,
+      balance: totalRevenue - totalExpenses,
+      monthlyRevenue,
+      matchRevenue,
+      pendingPayments: pendingPayments as any,
+      recentPayments: payments.slice(0, 20),
+      recentExpenses: expenses.slice(0, 20),
+      balanceHistory,
+    }
+  },
+}
+
+export { CATEGORY_LABELS }

@@ -12,10 +12,10 @@ import { MatchesListPage } from './pages/matches/MatchesListPage'
 import { CreateMatchPage } from './pages/matches/CreateMatchPage'
 import { MatchDetailPage } from './pages/matches/MatchDetailPage'
 import { VotePage } from './pages/matches/VotePage'
-import { HallPage } from './pages/hall/HallPage'
 import { RankingsPage } from './pages/rankings/RankingsPage'
 import { ProfilePage } from './pages/profile/ProfilePage'
 import { MapPage } from './pages/map/MapPage'
+import { FinancePage } from './pages/finances/FinancePage'
 
 const queryClient = new QueryClient()
 
@@ -40,11 +40,11 @@ export default function App() {
                 <Route path="/groups/join" element={<JoinGroupPage />} />
                 <Route path="/groups/settings" element={<GroupSettingsPage />} />
                 <Route path="/groups/:id" element={<GroupSettingsPage />} />
+                <Route path="/groups/:id/financas" element={<FinancePage />} />
                 <Route path="/matches" element={<MatchesListPage />} />
                 <Route path="/matches/new" element={<CreateMatchPage />} />
                 <Route path="/matches/:id" element={<MatchDetailPage />} />
                 <Route path="/matches/:id/vote" element={<VotePage />} />
-                <Route path="/hall" element={<HallPage />} />
                 <Route path="/rankings" element={<RankingsPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/mapa" element={<MapPage />} />

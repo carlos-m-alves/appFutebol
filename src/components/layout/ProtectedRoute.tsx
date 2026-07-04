@@ -6,7 +6,10 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation()
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
-  if (!user) return <Navigate to="/login" state={{ from: location }} replace />
+  if (!user) {
+    const redirect = encodeURIComponent(location.pathname + location.search)
+    return <Navigate to={`/login?redirect=${redirect}`} replace />
+  }
 
   return <>{children}</>
 }

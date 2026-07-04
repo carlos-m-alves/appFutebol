@@ -159,6 +159,75 @@ export interface GroupJoinRequest {
   profile?: Profile
 }
 
+export interface GroupFinanceConfig {
+  id: string
+  group_id: string
+  default_monthly_fee: number
+  default_match_fee: number
+  pix_key: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PlayerFeeSettings {
+  id: string
+  group_member_id: string
+  is_monthly_player: boolean
+  monthly_fee: number | null
+  match_fee: number | null
+  updated_at: string
+  group_member?: GroupMember & { profile?: Profile }
+}
+
+export interface Payment {
+  id: string
+  group_member_id: string
+  match_id: string | null
+  payment_type: 'MONTHLY' | 'MATCH'
+  amount: number
+  reference_month: string | null
+  paid_at: string
+  paid_by: string
+  notes: string | null
+  created_at: string
+  paid_by_profile?: Profile
+  group_member?: GroupMember & { profile?: Profile }
+  match?: Match
+}
+
+export interface GroupExpense {
+  id: string
+  group_id: string
+  description: string
+  amount: number
+  category: 'FIELD' | 'REFEREE' | 'EQUIPMENT' | 'SNACKS' | 'OTHER'
+  created_by: string
+  created_at: string
+  created_by_profile?: Profile
+}
+
+export interface FinanceSummary {
+  totalRevenue: number
+  totalExpenses: number
+  balance: number
+  monthlyRevenue: number
+  matchRevenue: number
+  pendingPayments: {
+    group_member_id: string
+    profile_id: string
+    player_name: string
+    player_avatar: string | null
+    is_monthly_player: boolean
+    monthly_fee: number
+    match_fee: number
+    last_monthly_payment: string | null
+    last_match_payment: string | null
+  }[]
+  recentPayments: Payment[]
+  recentExpenses: GroupExpense[]
+  balanceHistory: { date: string; balance: number; revenue: number; expense: number }[]
+}
+
 export interface MatchStats {
   player_id: string
   player_name: string
