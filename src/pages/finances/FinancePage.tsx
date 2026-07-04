@@ -250,7 +250,7 @@ export function FinancePage() {
         open={showPaymentModal}
         members={playerFeeList.map(p => ({
           group_member_id: p.group_member_id,
-          profile: members.find(m => m.id === p.group_member_id)?.profile ?? { id: '', auth_user_id: '', name: p.player_name, email: '', avatar_url: p.player_avatar, position: null, created_at: '' },
+          profile: members.find(m => m.id === p.group_member_id)?.profile ?? { id: '', auth_user_id: '', name: p.player_name, email: '', avatar_url: p.player_avatar, position: null, birth_date: null, weight: null, dominant_foot: null, created_at: '' },
           is_monthly_player: p.is_monthly_player,
           monthly_fee: p.monthly_fee ?? config?.default_monthly_fee ?? 0,
           match_fee: p.match_fee ?? config?.default_match_fee ?? 0,

@@ -72,7 +72,7 @@ describe('usePlayerStats', () => {
 
 describe('useProfile', () => {
   it('returns profile data', async () => {
-    const profile = { id: 'p1', auth_user_id: 'au1', name: 'Player 1', email: 'p1@test.com', avatar_url: null, position: null, created_at: '' }
+    const profile = { id: 'p1', auth_user_id: 'au1', name: 'Player 1', email: 'p1@test.com', avatar_url: null, position: null, birth_date: null, weight: null, dominant_foot: null, created_at: '' }
     const { getProfile } = await import('../../services/api')
     vi.mocked(getProfile).mockResolvedValueOnce(profile)
 
