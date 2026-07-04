@@ -8,7 +8,7 @@ interface AuthContextType {
   profile: Profile | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
-  signUp: (email: string, password: string, name: string, avatar_url?: string) => Promise<{ error: string | null }>
+  signUp: (email: string, password: string, name: string, avatar_url?: string, birth_date?: string, weight?: number, dominant_foot?: string) => Promise<{ error: string | null }>
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: string | null }>
@@ -61,9 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null }
   }
 
-  async function signUp(email: string, password: string, name: string, avatar_url?: string) {
-    const metadata: Record<string, string> = { name }
+  async function signUp(email: string, password: string, name: string, avatar_url?: string, birth_date?: string, weight?: number, dominant_foot?: string) {
+    const metadata: Record<string, any> = { name }
     if (avatar_url) metadata.avatar_url = avatar_url
+    if (birth_date) metadata.birth_date = birth_date
+    if (weight !== undefined) metadata.weight = weight
+    if (dominant_foot) metadata.dominant_foot = dominant_foot
 
     const { error } = await supabase.auth.signUp({
       email,

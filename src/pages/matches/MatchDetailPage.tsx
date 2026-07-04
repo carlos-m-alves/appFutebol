@@ -4,14 +4,16 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
 import { supabase } from '../../lib/supabase'
 import { useMatch, useMatchTeams, useMatchPlayers, useMatchResults, useMatchConfirmations, useMatchAwards, useMatchRatings, useMatchGroupMembers, useUpdateMatchStatus, useMatchConfirmAttendance, useMatchRemoveAttendance, useRemoveMatchPlayer, useAddMatchPlayer, useUpdatePlayerTeam, useSaveMatchPlayers, useSaveMatchResults, useCalculateAwards, useCreateTeam, useDeleteTeam, useAddGuestPlayer, useRemoveMatchPlayerById, useUpdateMatchPlayerTeamById, useUpdateGuestPlayerStats, useVoterPenalties, useClearVoterPenalty } from '../../hooks/useMatches'
-import type { Team, MatchPlayer, MatchAward, PlayerRating } from '../../types'
+import { usePlayerGroupStats } from '../../hooks/useGroups'
+import type { Team, MatchPlayer, MatchAward, PlayerRating, Profile } from '../../types'
+import { POSITION_LABELS, DOMINANT_FOOT_LABELS } from '../../types'
 import { balanceTeams } from '../../services/teamBalancer'
 import { MATCH_STATUS } from '../../lib/constants'
 import { DisplayRating } from '../../components/ui/StarRating'
 import { useToast } from '../../components/ui/Toast'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { FifaErrorScreen } from '../../components/ui/FifaErrorScreen'
-import { Calendar, MapPin, Users, Trophy, Star, Swords, Award, ThumbsDown, Goal, UserPlus, Check, Plus, Trash2, Shuffle, X } from 'lucide-react'
+import { Calendar, MapPin, Users, Trophy, Star, Swords, Award, ThumbsDown, Goal, UserPlus, Check, Plus, Trash2, Shuffle, X, Weight, Ruler, Baby } from 'lucide-react'
 
 export function MatchDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -35,6 +37,7 @@ export function MatchDetailPage() {
   const { data: voterPenalties = [] } = useVoterPenalties(awards ? id : undefined)
   const { mutateAsync: clearPenalty } = useClearVoterPenalty()
   const [startError, setStartError] = useState<string | null>(null)
+  const [selectedPlayer, setSelectedPlayer] = useState<MatchPlayer | null>(null)
 
   useEffect(() => {
     if (match && !currentGroup) {
@@ -233,18 +236,6 @@ export function MatchDetailPage() {
 
 
 
-      {(match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS') && (
-        <ManagePlayersPanel matchId={match.id} groupId={match.group_id} players={players} teams={teams} isAdmin={isAdmin} />
-      )}
-
-      {isAdmin && !results.length && (match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS') && (
-        <MatchAdminPanel matchId={match.id} teams={teams} players={players} groupMembers={groupMembers} />
-      )}
-
-      {match.status === 'FINISHED' && (
-        <MatchStatsPanel match={match} players={players} teams={teams} groupMembers={groupMembers} ratings={ratings} isAdmin={isAdmin} />
-      )}
-
       {canVote && !awards && (
         <div className="bg-purple-50 border border-purple-200 rounded-xl p-6 mb-6 text-center">
           <h2 className="font-bold text-lg mb-2 flex items-center justify-center gap-2 text-gray-900">
@@ -256,6 +247,18 @@ export function MatchDetailPage() {
             <Star size={20} /> Votar
           </button>
         </div>
+      )}
+
+      {(match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS') && (
+        <ManagePlayersPanel matchId={match.id} groupId={match.group_id} players={players} teams={teams} isAdmin={isAdmin} onPlayerClick={p => setSelectedPlayer(p)} />
+      )}
+
+      {isAdmin && !results.length && (match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS') && (
+        <MatchAdminPanel matchId={match.id} teams={teams} players={players} groupMembers={groupMembers} />
+      )}
+
+      {match.status === 'FINISHED' && (
+        <MatchStatsPanel match={match} players={players} teams={teams} groupMembers={groupMembers} ratings={ratings} isAdmin={isAdmin} onPlayerClick={p => setSelectedPlayer(p)} />
       )}
 
       {awaitingEvaluation && (
@@ -288,6 +291,11 @@ export function MatchDetailPage() {
       )}
     </div>
 
+    <PlayerSummaryModal
+      player={selectedPlayer}
+      groupId={match.group_id}
+      onClose={() => setSelectedPlayer(null)}
+    />
     <FifaErrorScreen
       open={!!startError}
       title="Erro ao Iniciar Partida"
@@ -367,8 +375,8 @@ function MatchAdminPanel({ matchId, teams, players, groupMembers }: {
   )
 }
 
-function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin }: {
-  match: any; players: MatchPlayer[]; teams: Team[]; groupMembers: any[]; ratings: PlayerRating[]; isAdmin: boolean
+function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin, onPlayerClick }: {
+  match: any; players: MatchPlayer[]; teams: Team[]; groupMembers: any[]; ratings: PlayerRating[]; isAdmin: boolean; onPlayerClick?: (p: MatchPlayer) => void
 }) {
   const [playerStats, setPlayerStats] = useState<Record<string, {
     teamId: string; goals: number; assists: number; own_goals: number
@@ -587,7 +595,7 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
         )}
 
         <div className="space-y-6">
-          {teams.map(team => {
+                  {teams.map(team => {
             const teamPlayers = allPlayers.filter(p => p.team_id === team.id)
             if (teamPlayers.length === 0) return null
             return (
@@ -602,7 +610,8 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
                 <div className="space-y-2">
                   {teamPlayers.map(p => (
                     <div key={p.profile_id || p.id}
-                      className="bg-white/[0.04] rounded-xl border border-white/[0.06] hover:bg-white/[0.08] transition-all duration-200 overflow-hidden">
+                      onClick={() => p.profile_id && onPlayerClick?.(p)}
+                      className={`bg-white/[0.04] rounded-xl border border-white/[0.06] hover:bg-white/[0.08] transition-all duration-200 overflow-hidden ${p.profile_id ? 'cursor-pointer' : ''}`}>
                       <div className="p-3">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -640,7 +649,7 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
                           ) : null}
                         </div>
                         {!playerStats[p.id]?.no_show && (
-                          <div className="grid grid-cols-5 gap-2">
+                          <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 sm:gap-2">
                             {[
                               { key: 'goals', label: 'Gols', color: 'text-yellow-400' },
                               { key: 'assists', label: 'Assist.', color: 'text-blue-400' },
@@ -649,12 +658,12 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
                               { key: 'nutmeg_given', label: 'Levou', color: 'text-orange-400' },
                             ].map(stat => (
                               <div key={stat.key}>
-                                <label className={`text-[9px] font-black uppercase tracking-wider block mb-1 ${stat.color}`}>{stat.label}</label>
+                                <label className={`text-[8px] sm:text-[9px] font-black uppercase tracking-wider block mb-1 ${stat.color}`}>{stat.label}</label>
                                 {isAdmin ? (
                                   <StatStepper value={(playerStats[p.id] as any)?.[stat.key] ?? 0}
                                     onChange={v => updateStat(p.id, stat.key, v)} />
                                 ) : (
-                                  <div className="text-center text-white font-bold text-sm py-1.5 bg-white/[0.04] rounded-lg border border-white/[0.06]">
+                                  <div className="text-center text-white font-bold text-xs sm:text-sm py-1 sm:py-1.5 bg-white/[0.04] rounded-lg border border-white/[0.06]">
                                     {(playerStats[p.id] as any)?.[stat.key] ?? 0}
                                   </div>
                                 )}
@@ -681,7 +690,8 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
               <div className="space-y-2">
                 {allPlayers.filter(p => !p.team_id).map(p => (
                   <div key={p.profile_id || p.id}
-                    className="bg-white/[0.04] rounded-xl border border-white/[0.06] hover:bg-white/[0.08] transition-all duration-200 overflow-hidden">
+                    onClick={() => p.profile_id && onPlayerClick?.(p)}
+                    className={`bg-white/[0.04] rounded-xl border border-white/[0.06] hover:bg-white/[0.08] transition-all duration-200 overflow-hidden ${p.profile_id ? 'cursor-pointer' : ''}`}>
                     <div className="p-3">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -719,7 +729,7 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
                         ) : null}
                       </div>
                       {!playerStats[p.id]?.no_show && (
-                        <div className="grid grid-cols-5 gap-2">
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 sm:gap-2">
                           {[
                             { key: 'goals', label: 'Gols', color: 'text-yellow-400' },
                             { key: 'assists', label: 'Assist.', color: 'text-blue-400' },
@@ -767,8 +777,8 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
   )
 }
 
-function ManagePlayersPanel({ matchId, groupId, players, teams, isAdmin }: {
-  matchId: string; groupId: string; players: MatchPlayer[]; teams: Team[]; isAdmin: boolean
+function ManagePlayersPanel({ matchId, groupId, players, teams, isAdmin, onPlayerClick }: {
+  matchId: string; groupId: string; players: MatchPlayer[]; teams: Team[]; isAdmin: boolean; onPlayerClick?: (p: MatchPlayer) => void
 }) {
   const { mutateAsync: updatePlayerTeam } = useUpdatePlayerTeam()
   const { mutateAsync: createTeam } = useCreateTeam()
@@ -864,25 +874,27 @@ function ManagePlayersPanel({ matchId, groupId, players, teams, isAdmin }: {
 
   function PlayerRow({ player }: { player: MatchPlayer }) {
     return (
-      <div key={player.id} className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
-        <div className="flex items-center gap-2">
+      <div key={player.id}
+        onClick={() => player.profile_id && onPlayerClick?.(player)}
+        className={`flex items-center justify-between p-2 rounded-lg ${player.profile_id ? 'cursor-pointer hover:bg-gray-100' : ''} bg-gray-50`}>
+        <div className="flex items-center gap-2 min-w-0">
           {player.guest_name ? (
-            <div className="w-7 h-7 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-xs">
+            <div className="w-7 h-7 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-xs shrink-0">
               <UserPlus size={12} />
             </div>
           ) : player.profile?.avatar_url ? (
             <img src={player.profile.avatar_url} alt=""
-              className="w-7 h-7 rounded-full object-cover" />
+              className="w-7 h-7 rounded-full object-cover shrink-0" />
           ) : (
-            <div className="w-7 h-7 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-xs">
+            <div className="w-7 h-7 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-xs shrink-0">
               {getPlayerInitial(player)}
             </div>
           )}
-          <span className="text-sm text-gray-900">{getPlayerName(player)}</span>
+          <span className="text-sm text-gray-900 truncate">{getPlayerName(player)}</span>
           {player.guest_name ? (
-            <span className="text-[10px] text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded font-medium">Convidado</span>
+            <span className="text-[10px] text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded font-medium shrink-0">Convidado</span>
           ) : getPlayerPosition(player) ? (
-            <span className="text-[10px] text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded font-medium">
+            <span className="text-[10px] text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded font-medium shrink-0">
               {positionLabels[getPlayerPosition(player)!]}
             </span>
           ) : null}
@@ -1042,18 +1054,158 @@ function AwardsPanel({ awards, players }: { awards: MatchAward; players: MatchPl
   )
 }
 
+function PlayerSummaryModal({ player, groupId, onClose }: { player: MatchPlayer | null; groupId: string; onClose: () => void }) {
+  const { data: stats, isLoading } = usePlayerGroupStats(player?.profile_id || undefined, groupId)
+
+  if (!player || !player.profile) return null
+
+  const p = player.profile
+  const birthDate = p.birth_date ? new Date(p.birth_date) : null
+  const age = birthDate ? Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+      <div onClick={e => e.stopPropagation()}
+        className="relative w-full sm:max-w-lg max-h-[85vh] overflow-y-auto bg-gradient-to-b from-[#1a2332] to-[#0a0f18] rounded-t-2xl sm:rounded-2xl border border-white/[0.06] shadow-[0_0_60px_rgba(0,0,0,0.6)]">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-yellow-500/30 to-transparent" />
+
+        <button onClick={onClose} className="absolute top-3 right-3 text-gray-500 hover:text-white transition z-10 p-1">
+          <X size={20} />
+        </button>
+
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-14 h-14 rounded-full overflow-hidden shrink-0 ring-2 ring-yellow-500/30">
+              {p.avatar_url ? (
+                <img src={p.avatar_url} alt={p.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center text-[#0a0e17] font-black text-xl">
+                  {p.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">{p.name}</h2>
+              {p.position && (
+                <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">{POSITION_LABELS[p.position]}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Profile Info */}
+          <div className="bg-white/[0.04] rounded-xl p-4 border border-white/[0.06] mb-4">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-500 mb-3">Perfil</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {age !== null && (
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-0.5">Idade</span>
+                  <span className="text-white font-bold">{age} anos</span>
+                </div>
+              )}
+              {p.weight && (
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-0.5">Peso</span>
+                  <span className="text-white font-bold">{p.weight} kg</span>
+                </div>
+              )}
+              {p.dominant_foot && (
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-0.5">Pé Dominante</span>
+                  <span className="text-white font-bold">{DOMINANT_FOOT_LABELS[p.dominant_foot]}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Group KPIs */}
+          <div className="bg-white/[0.04] rounded-xl p-4 border border-white/[0.06]">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-gray-500 mb-3">Estatísticas no Grupo</h3>
+            {isLoading ? (
+              <p className="text-gray-500 text-sm">Carregando...</p>
+            ) : stats ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  <div className="bg-yellow-500/10 rounded-lg p-3 text-center border border-yellow-500/20">
+                    <span className="text-xl font-black text-yellow-400 tabular-nums">{stats.goals}</span>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-yellow-400/70 mt-0.5">Gols</p>
+                  </div>
+                  <div className="bg-blue-500/10 rounded-lg p-3 text-center border border-blue-500/20">
+                    <span className="text-xl font-black text-blue-400 tabular-nums">{stats.assists}</span>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-blue-400/70 mt-0.5">Assists.</p>
+                  </div>
+                  <div className="bg-purple-500/10 rounded-lg p-3 text-center border border-purple-500/20">
+                    <span className="text-xl font-black text-purple-400 tabular-nums">{stats.matchesPlayed}</span>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-purple-400/70 mt-0.5">Partidas</p>
+                  </div>
+                  <div className="bg-emerald-500/10 rounded-lg p-3 text-center border border-emerald-500/20">
+                    <span className="text-xl font-black text-emerald-400 tabular-nums">{stats.avgRating ? stats.avgRating.toFixed(1) : '-'}</span>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-emerald-400/70 mt-0.5">Média</p>
+                  </div>
+                </div>
+
+                {/* Last 3 results */}
+                {stats.last3.length > 0 && (
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-gray-500 mb-2">Últimos Resultados</p>
+                    <div className="flex gap-2">
+                      {stats.last3.map((result, i) => {
+                        const colors = { win: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', draw: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', loss: 'bg-red-500/20 text-red-400 border-red-500/30' }
+                        const labels = { win: 'V', draw: 'E', loss: 'D' }
+                        return (
+                          <div key={i} className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black border ${colors[result]}`}>
+                            {labels[result]}
+                          </div>
+                        )
+                      })}
+                      {stats.last3.length < 3 && Array.from({ length: 3 - stats.last3.length }).map((_, i) => (
+                        <div key={`empty-${i}`} className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black bg-white/[0.04] border border-white/[0.06] text-gray-600">
+                          -
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional KPIs */}
+                <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/[0.06]">
+                  <div className="text-center">
+                    <span className="text-sm font-black text-orange-400 tabular-nums">{stats.nutmeg_done}</span>
+                    <p className="text-[8px] font-black uppercase tracking-wider text-orange-400/70 mt-0.5">Canetas</p>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-sm font-black text-red-400 tabular-nums">{stats.nutmeg_given}</span>
+                    <p className="text-[8px] font-black uppercase tracking-wider text-red-400/70 mt-0.5">Levou Caneta</p>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-sm font-black text-gray-400 tabular-nums">{stats.matchesWon}</span>
+                    <p className="text-[8px] font-black uppercase tracking-wider text-gray-400/70 mt-0.5">Vitórias</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-gray-500 text-sm">Sem estatísticas disponíveis.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function StatStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="flex items-center bg-white/[0.06] rounded-lg border border-white/[0.10] overflow-hidden">
       <button type="button" onClick={() => onChange(Math.max(0, value - 1))}
-        className="px-2 py-1.5 text-gray-400 hover:text-white hover:bg-white/[0.10] transition font-black text-sm leading-none">
+        className="px-2 sm:px-2.5 py-2 sm:py-1.5 text-gray-400 hover:text-white hover:bg-white/[0.10] transition font-black text-sm leading-none active:bg-white/[0.15]">
         −
       </button>
-      <span className="w-8 py-1.5 text-xs font-black text-yellow-400 text-center leading-none tabular-nums select-none">
+      <span className="w-7 sm:w-8 py-2 sm:py-1.5 text-xs font-black text-yellow-400 text-center leading-none tabular-nums select-none">
         {value}
       </span>
       <button type="button" onClick={() => onChange(value + 1)}
-        className="px-2 py-1.5 text-gray-400 hover:text-white hover:bg-white/[0.10] transition font-black text-sm leading-none">
+        className="px-2 sm:px-2.5 py-2 sm:py-1.5 text-gray-400 hover:text-white hover:bg-white/[0.10] transition font-black text-sm leading-none active:bg-white/[0.15]">
         +
       </button>
     </div>

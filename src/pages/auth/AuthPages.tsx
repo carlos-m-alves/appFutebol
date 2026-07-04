@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { uploadAvatar } from '../../services/storage'
 import { supabase } from '../../lib/supabase'
 import { Swords } from 'lucide-react'
+import { DOMINANT_FOOT_LABELS, type DominantFoot } from '../../types'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -132,6 +133,9 @@ export function RegisterPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [birthDate, setBirthDate] = useState('')
+  const [weight, setWeight] = useState('')
+  const [dominantFoot, setDominantFoot] = useState('')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -167,7 +171,7 @@ export function RegisterPage() {
         avatarUrl = await uploadAvatar(avatarFile, tempId)
       }
 
-      const { error } = await signUp(email, password, name, avatarUrl)
+      const { error } = await signUp(email, password, name, avatarUrl, birthDate || undefined, weight ? Number(weight) : undefined, dominantFoot || undefined)
       if (error) setError(error)
       else setSuccess(true)
     } catch (err: any) {
@@ -226,6 +230,27 @@ export function RegisterPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)}
               required minLength={6} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
+            <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
+            <input type="number" value={weight} onChange={e => setWeight(e.target.value)}
+              step="0.1" min="0" max="300" placeholder="Ex: 75.5"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Pé Dominante</label>
+            <select value={dominantFoot} onChange={e => setDominantFoot(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900">
+              <option value="">Selecione</option>
+              {Object.entries(DOMINANT_FOOT_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
           </div>
           <button type="submit" disabled={loading}
             className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
