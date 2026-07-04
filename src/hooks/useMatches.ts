@@ -111,7 +111,7 @@ export function useUpdateMatchStatus() {
       matchService.update(matchId, updates),
     onSuccess: (_, { matchId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.matches.detail(matchId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.matches.list(undefined) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.matches.all })
     },
   })
 }

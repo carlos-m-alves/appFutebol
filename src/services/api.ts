@@ -3,7 +3,7 @@ import { sanitizeText, sanitizeOptional } from '../lib/sanitize'
 import type {
   Group, GroupMember, Match, MatchConfirmation, Team,
   MatchPlayer, MatchResult, PlayerRating, MatchAward, RecurringSchedule, Profile, GroupJoinRequest, VoterPenalty,
-  GroupFinanceConfig, PlayerFeeSettings, Payment, GroupExpense, FinanceSummary
+  GroupFinanceConfig, PlayerFeeSettings, Payment, GroupExpense, FinanceSummary, MatchStats
 } from '../types'
 
 export const groupService = {

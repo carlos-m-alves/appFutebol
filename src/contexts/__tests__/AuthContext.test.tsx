@@ -65,13 +65,16 @@ describe('AuthContext', () => {
   it('sets user from session', async () => {
     vi.mocked(supabase.auth.getSession).mockResolvedValue({
       data: {
-        session: { user: { id: 'u1', email: 'test@test.com' } },
+        session: {
+          access_token: 'token', refresh_token: 'refresh', expires_in: 3600, token_type: 'bearer',
+          user: { id: 'u1', email: 'test@test.com', app_metadata: {}, user_metadata: {}, aud: 'authenticated', created_at: '' },
+        },
       },
       error: null,
-    })
+    } as any)
 
     const singleChain = vi.fn().mockResolvedValue({
-      data: { id: 'p1', name: 'Player', email: 'test@test.com', auth_user_id: 'u1', avatar_url: null, created_at: '' },
+      data: { id: 'p1', name: 'Player', email: 'test@test.com', auth_user_id: 'u1', avatar_url: null, position: null, created_at: '' },
       error: null,
     })
     vi.mocked(supabase.from).mockReturnValue({
@@ -80,7 +83,7 @@ describe('AuthContext', () => {
           single: singleChain,
         })),
       })),
-    })
+    } as any)
 
     render(
       <AuthProvider>

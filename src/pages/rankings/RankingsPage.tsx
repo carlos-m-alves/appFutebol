@@ -26,7 +26,7 @@ function LastGames({ results }: { results: PlayerRankingStats['last3'] }) {
   )
 }
 
-function PlayerRow({ player, rank, sortBy }: { player: PlayerRankingStats; rank: number; sortBy: string }) {
+function PlayerRow({ player, rank }: { player: PlayerRankingStats; rank: number }) {
   const initials = player.player_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
   const rankDisplay = rank === 1 ? <Trophy size={14} className="text-yellow-400" />
@@ -228,7 +228,7 @@ export function RankingsPage() {
       ) : (
         <div className="space-y-1">
           {sorted.map((player, i) => (
-            <PlayerRow key={player.player_id} player={player} rank={i + 1} sortBy={sortBy} />
+            <PlayerRow key={player.player_id} player={player} rank={i + 1} />
           ))}
         </div>
       )}

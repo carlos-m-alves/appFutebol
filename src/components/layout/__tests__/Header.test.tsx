@@ -28,7 +28,7 @@ beforeEach(() => {
 describe('Header', () => {
   const baseAuth = {
     user: { id: 'u1' } as any,
-    profile: { id: 'p1', name: 'Player 1', avatar_url: null },
+    profile: { id: 'p1', name: 'Player 1', avatar_url: null, auth_user_id: 'au1', email: 'p1@test.com', position: null, created_at: '' },
     loading: false,
     signIn: vi.fn(),
     signUp: vi.fn(),

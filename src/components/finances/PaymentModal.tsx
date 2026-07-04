@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X, Check } from 'lucide-react'
-import type { GroupMember, Profile, Match } from '../../types'
+import type { Profile, Match } from '../../types'
 
 interface PlayerWithFees {
   group_member_id: string

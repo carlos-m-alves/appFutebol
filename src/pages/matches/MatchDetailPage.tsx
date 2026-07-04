@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
 import { supabase } from '../../lib/supabase'
-import { useMatch, useMatchTeams, useMatchPlayers, useMatchResults, useMatchConfirmations, useMatchAwards, useMatchRatings, useMatchGroupMembers, useUpdateMatchStatus, useMatchConfirmAttendance, useRemoveMatchPlayer, useAddMatchPlayer, useUpdatePlayerTeam, useSaveMatchPlayers, useSaveMatchResults, useSubmitRating, useCalculateAwards, useCreateTeam, useDeleteTeam, useAddGuestPlayer, useRemoveMatchPlayerById, useUpdateMatchPlayerTeamById, useUpdateGuestPlayerStats, useVoterPenalties, useClearVoterPenalty } from '../../hooks/useMatches'
+import { useMatch, useMatchTeams, useMatchPlayers, useMatchResults, useMatchConfirmations, useMatchAwards, useMatchRatings, useMatchGroupMembers, useUpdateMatchStatus, useMatchConfirmAttendance, useRemoveMatchPlayer, useAddMatchPlayer, useUpdatePlayerTeam, useSaveMatchPlayers, useSaveMatchResults, useCalculateAwards, useCreateTeam, useDeleteTeam, useAddGuestPlayer, useRemoveMatchPlayerById, useUpdateMatchPlayerTeamById, useUpdateGuestPlayerStats, useVoterPenalties, useClearVoterPenalty } from '../../hooks/useMatches'
 import type { Team, MatchPlayer, MatchAward, PlayerRating } from '../../types'
 import { balanceTeams } from '../../services/teamBalancer'
 import { MATCH_STATUS } from '../../lib/constants'
-import { StarRating, DisplayRating } from '../../components/ui/StarRating'
+import { DisplayRating } from '../../components/ui/StarRating'
 import { useToast } from '../../components/ui/Toast'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { FifaErrorScreen } from '../../components/ui/FifaErrorScreen'
@@ -977,97 +977,6 @@ function ManagePlayersPanel({ matchId, groupId, players, teams, isAdmin }: {
   )
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function VotingPanel({ matchId, profileId, players }: {
-  matchId: string; profileId: string; players: MatchPlayer[]
-}) {
-  const [votes, setVotes] = useState<Record<string, { rating: number; comment: string }>>({})
-  const { mutateAsync: submitRating, isPending: submitting } = useSubmitRating()
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleSubmitVote(ratedProfileId: string) {
-    const vote = votes[ratedProfileId]
-    if (!vote?.rating) return
-
-    setError(null)
-    try {
-      await submitRating({
-        matchId, raterProfileId: profileId, ratedProfileId,
-        rating: vote.rating, comment: vote.comment || undefined
-      })
-      setVotes(prev => ({ ...prev, [ratedProfileId]: { rating: 0, comment: '' } }))
-    } catch (err: any) {
-      setError(err.message || 'Erro ao enviar voto')
-    }
-  }
-
-  const otherPlayers = players.filter((p): p is typeof p & { profile_id: string } => p.profile_id !== null && p.profile_id !== profileId && !p.no_show)
-
-  return (
-    <div className="space-y-4 mb-6">
-      <div className="flex items-center gap-2">
-        <Star size={20} className="text-purple-500" />
-        <h2 className="font-bold text-lg">Avaliar Jogadores</h2>
-      </div>
-      <p className="text-sm text-gray-500">Avalie cada jogador que participou desta partida.</p>
-
-      {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {otherPlayers.map(p => (
-          <div key={p.profile_id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col items-center text-center">
-            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-xl mb-2">
-              {p.profile?.name?.charAt(0).toUpperCase() || '?'}
-            </div>
-            <h3 className="font-semibold text-base mb-3">{p.profile?.name}</h3>
-
-            <div className="flex items-center justify-center gap-4 mb-4 bg-gray-50 rounded-lg p-3 w-full">
-              <StatBadge label="Gols" value={p.goals} color="text-green-600" />
-              <div className="w-px h-8 bg-gray-200" />
-              <StatBadge label="Assist." value={p.assists} color="text-blue-600" />
-              {p.own_goals > 0 && <><div className="w-px h-8 bg-gray-200" /><StatBadge label="G.C." value={p.own_goals} color="text-red-500" /></>}
-              {p.nutmeg_done > 0 && <><div className="w-px h-8 bg-gray-200" /><StatBadge label="Caneta" value={p.nutmeg_done} color="text-purple-600" /></>}
-              {p.nutmeg_given > 0 && <><div className="w-px h-8 bg-gray-200" /><StatBadge label="Levou" value={p.nutmeg_given} color="text-orange-500" /></>}
-            </div>
-
-            <div className="mb-3">
-              <StarRating
-                value={votes[p.profile_id]?.rating || 0}
-                onChange={(rating) => setVotes(prev => ({
-                  ...prev,
-                  [p.profile_id]: { ...prev[p.profile_id], rating }
-                }))}
-              />
-              {votes[p.profile_id]?.rating > 0 && (
-                <span className="text-sm font-medium text-gray-500 ml-2">{votes[p.profile_id].rating.toFixed(1)}</span>
-              )}
-            </div>
-
-            <input
-              type="text"
-              placeholder="Comentário anônimo (opcional)"
-              value={votes[p.profile_id]?.comment || ''}
-              onChange={e => setVotes(prev => ({
-                ...prev,
-                [p.profile_id]: { ...prev[p.profile_id], comment: e.target.value }
-              }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none mb-3"
-            />
-
-            <button
-              onClick={() => handleSubmitVote(p.profile_id)}
-              disabled={!votes[p.profile_id]?.rating || submitting}
-              className="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition text-sm disabled:opacity-50 font-medium"
-            >
-              {votes[p.profile_id]?.rating ? (submitting ? 'Enviando...' : 'Enviar Voto') : 'Dê uma nota'}
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function AwardsPanel({ awards }: { awards: MatchAward }) {
   const awards_list = [
     { label: 'Craque da Partida', icon: <Award size={24} />, color: 'text-yellow-500', bg: 'bg-yellow-50', player: awards.best_player, rating: awards.best_player_rating },
@@ -1119,11 +1028,3 @@ function StatStepper({ value, onChange }: { value: number; onChange: (v: number)
   )
 }
 
-function StatBadge({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className={`flex flex-col items-center ${color}`}>
-      <span className="text-lg font-bold">{value}</span>
-      <span className="text-[10px] uppercase tracking-wider opacity-75">{label}</span>
-    </div>
-  )
-}

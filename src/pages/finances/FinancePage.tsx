@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
-import { groupService, matchService, financeService } from '../../services/api'
+import { groupService, matchService } from '../../services/api'
 import { useFinanceSummary, useFinanceConfig, useUpsertFinanceConfig, useUpsertPlayerFee, useRecordPayment, useDeletePayment, useAddExpense, useDeleteExpense, usePlayerFeeSettings } from '../../hooks/useFinances'
 import { supabase } from '../../lib/supabase'
-import type { GroupMember, Match, Profile } from '../../types'
+import type { GroupMember, Match } from '../../types'
 import { Settings, Plus, ArrowLeft, DollarSign, Users } from 'lucide-react'
 
 import { FinanceSummaryCards } from '../../components/finances/FinanceSummaryCards'
@@ -209,7 +209,7 @@ export function FinancePage() {
             {/* Debtors */}
             <DebtorsList
               debtors={summary.pendingPayments}
-              onMarkPayment={(debtor, type) => {
+              onMarkPayment={(_debtor, _type) => {
                 if (isAdmin) setShowPaymentModal(true)
               }}
               isAdmin={isAdmin}
@@ -237,7 +237,7 @@ export function FinancePage() {
       {/* Modals */}
       <FinanceConfigModal
         open={showConfigModal}
-        config={config}
+        config={config ?? null}
         onSave={async (data) => {
           await upsertConfig.mutateAsync(data)
           refetchSummary()
