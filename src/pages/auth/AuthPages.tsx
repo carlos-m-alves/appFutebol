@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { uploadAvatar } from '../../services/storage'
 import { supabase } from '../../lib/supabase'
 import { Swords } from 'lucide-react'
-import { DOMINANT_FOOT_LABELS, type DominantFoot } from '../../types'
+import { DOMINANT_FOOT_LABELS } from '../../types'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')

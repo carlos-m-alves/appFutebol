@@ -5,7 +5,7 @@ import { useGroup } from '../../contexts/GroupContext'
 import { supabase } from '../../lib/supabase'
 import { useMatch, useMatchTeams, useMatchPlayers, useMatchResults, useMatchConfirmations, useMatchAwards, useMatchRatings, useMatchGroupMembers, useUpdateMatchStatus, useMatchConfirmAttendance, useMatchRemoveAttendance, useRemoveMatchPlayer, useAddMatchPlayer, useUpdatePlayerTeam, useSaveMatchPlayers, useSaveMatchResults, useCalculateAwards, useCreateTeam, useDeleteTeam, useAddGuestPlayer, useRemoveMatchPlayerById, useUpdateMatchPlayerTeamById, useUpdateGuestPlayerStats, useVoterPenalties, useClearVoterPenalty } from '../../hooks/useMatches'
 import { usePlayerGroupStats } from '../../hooks/useGroups'
-import type { Team, MatchPlayer, MatchAward, PlayerRating, Profile } from '../../types'
+import type { Team, MatchPlayer, MatchAward, PlayerRating } from '../../types'
 import { POSITION_LABELS, DOMINANT_FOOT_LABELS } from '../../types'
 import { balanceTeams } from '../../services/teamBalancer'
 import { MATCH_STATUS } from '../../lib/constants'
@@ -13,7 +13,7 @@ import { DisplayRating } from '../../components/ui/StarRating'
 import { useToast } from '../../components/ui/Toast'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { FifaErrorScreen } from '../../components/ui/FifaErrorScreen'
-import { Calendar, MapPin, Users, Trophy, Star, Swords, Award, ThumbsDown, Goal, UserPlus, Check, Plus, Trash2, Shuffle, X, Weight, Ruler, Baby } from 'lucide-react'
+import { Calendar, MapPin, Users, Trophy, Star, Swords, Award, ThumbsDown, Goal, UserPlus, Check, Plus, Trash2, Shuffle, X } from 'lucide-react'
 
 export function MatchDetailPage() {
   const { id } = useParams<{ id: string }>()
