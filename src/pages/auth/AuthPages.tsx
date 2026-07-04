@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { uploadAvatar } from '../../services/storage'
 import { supabase } from '../../lib/supabase'
@@ -13,6 +13,9 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const { signIn, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  const redirectTo = searchParams.get('redirect') || '/'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -20,7 +23,7 @@ export function LoginPage() {
     setError(null)
     const { error } = await signIn(email, password)
     if (error) setError(error)
-    else navigate('/')
+    else navigate(redirectTo)
     setLoading(false)
   }
 
@@ -28,6 +31,9 @@ export function LoginPage() {
     setGoogleLoading(true)
     setError(null)
     try {
+      if (redirectTo !== '/') {
+        sessionStorage.setItem('redirect_after_login', redirectTo)
+      }
       await signInWithGoogle()
     } catch (err: any) {
       setError(err.message || 'Erro ao entrar com Google')
@@ -239,12 +245,15 @@ export function AuthCallbackPage() {
   const navigate = useNavigate()
 
   useEffect(() => {
+    const target = sessionStorage.getItem('redirect_after_login') || '/'
+    sessionStorage.removeItem('redirect_after_login')
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate('/', { replace: true })
+      if (session) navigate(target, { replace: true })
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') navigate('/', { replace: true })
+      if (event === 'SIGNED_IN') navigate(target, { replace: true })
     })
 
     return () => subscription.unsubscribe()

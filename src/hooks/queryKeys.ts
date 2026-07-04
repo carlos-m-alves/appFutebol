@@ -20,6 +20,13 @@ export const queryKeys = {
       ['groups', 'myStats', profileId, groupId].filter(Boolean),
     joinRequests: (groupId: string) => ['groups', 'joinRequests', groupId],
   },
+  finances: {
+    config: (groupId: string) => ['finances', 'config', groupId],
+    playerFees: (groupId: string) => ['finances', 'playerFees', groupId],
+    payments: (groupId: string) => ['finances', 'payments', groupId],
+    expenses: (groupId: string) => ['finances', 'expenses', groupId],
+    summary: (groupId: string) => ['finances', 'summary', groupId],
+  },
   profiles: {
     detail: (profileId: string) => ['profiles', 'detail', profileId],
   },

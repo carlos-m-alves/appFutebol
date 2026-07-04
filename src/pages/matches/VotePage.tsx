@@ -29,7 +29,7 @@ export function VotePage() {
   )
 
   const players = useMemo(() =>
-    allPlayers.filter(p => p.profile_id !== profile?.id && !p.no_show),
+    allPlayers.filter((p): p is typeof p & { profile_id: string } => !!p.profile_id && p.profile_id !== profile?.id && !p.no_show),
     [allPlayers, profile?.id]
   )
 
@@ -46,25 +46,20 @@ export function VotePage() {
     return map
   }, [myExistingRatings])
 
-  const voteQueue = useMemo(() =>
-    players.filter(p => !existingVotedIds.has(p.profile_id)),
-    [players, existingVotedIds]
-  )
+  const votedCount = existingVotedIds.size + submitted.size
 
   useEffect(() => {
     if (!players.length) return
-    const firstIndex = voteQueue.length > 0
-      ? players.findIndex(p => p.profile_id === voteQueue[0].profile_id)
-      : 0
-    setCurrentIndex(firstIndex >= 0 ? firstIndex : 0)
+    setCurrentIndex(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voteQueue.length])
+  }, [])
 
   const currentPlayer = players[currentIndex]
   const isJustVoted = currentPlayer && submitted.has(currentPlayer.profile_id)
-  const isVoted = currentPlayer && (existingVotedIds.has(currentPlayer.profile_id) || isJustVoted)
+  const isAlreadyVoted = currentPlayer && existingVotedIds.has(currentPlayer.profile_id)
+  const isVoted = isAlreadyVoted || isJustVoted
   const hasRating = !!ratings[currentPlayer?.profile_id]
-  const allVoted = voteQueue.length === 0 || voteQueue.every(p => submitted.has(p.profile_id))
+  const allVoted = players.length > 0 && players.every(p => existingVotedIds.has(p.profile_id) || submitted.has(p.profile_id))
 
   async function handleSubmitVote(): Promise<boolean> {
     if (!id || !currentPlayer || !hasRating || !profile) return false
@@ -90,16 +85,13 @@ export function VotePage() {
   }
 
   function advanceToNext() {
-    const remaining = players.filter(p => !submitted.has(p.profile_id) && !existingVotedIds.has(p.profile_id))
-    if (remaining.length === 0) return
-    const nextIndex = players.findIndex(p => p.profile_id === remaining[0].profile_id)
-    if (nextIndex >= 0 && nextIndex !== currentIndex) {
-      setAnimClass('animate-slide-left')
-      setTimeout(() => {
-        setCurrentIndex(nextIndex)
-        setAnimClass('')
-      }, 200)
-    }
+    const nextIndex = currentIndex + 1
+    if (nextIndex >= players.length) return
+    setAnimClass('animate-slide-left')
+    setTimeout(() => {
+      setCurrentIndex(nextIndex)
+      setAnimClass('')
+    }, 200)
   }
 
   function handleFinish() {
@@ -143,9 +135,6 @@ export function VotePage() {
     )
   }
 
-  const totalQueue = voteQueue.length
-  const queueIndex = voteQueue.findIndex(p => p.profile_id === currentPlayer?.profile_id)
-
   return (
     <div className="max-w-lg mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -153,11 +142,11 @@ export function VotePage() {
           <ArrowLeft size={20} /> Voltar
         </button>
         <div className="flex items-center gap-1 text-sm text-gray-400">
-          {voteQueue.map((p, i) => (
-            <div key={p.profile_id} className={`w-2 h-2 rounded-full ${i === queueIndex ? 'bg-green-500' : submitted.has(p.profile_id) ? 'bg-green-200' : 'bg-gray-200'}`} />
+          {players.map((p) => (
+            <div key={p.profile_id} className={`w-2 h-2 rounded-full ${existingVotedIds.has(p.profile_id) || submitted.has(p.profile_id) ? 'bg-green-500' : p.profile_id === currentPlayer?.profile_id ? 'bg-yellow-500' : 'bg-gray-200'}`} />
           ))}
         </div>
-        <span className="text-sm text-gray-400">{queueIndex + 1} de {totalQueue}</span>
+        <span className="text-sm text-gray-400">{currentIndex + 1} de {players.length}</span>
       </div>
 
       <div
@@ -212,42 +201,61 @@ export function VotePage() {
           )}
         </div>
 
-        <>
-          <div className="mb-4">
-            <p className="text-sm text-gray-500 mb-3">Qual nota {currentPlayer.profile?.name?.split(' ')[0]} merece?</p>
-            <div className="flex justify-center">
-              <StarRating
-                value={ratings[currentPlayer.profile_id] || 0}
-                onChange={(val) => {
-                  if (!isVoted) setRatings(prev => ({ ...prev, [currentPlayer.profile_id]: val }))
-                }}
-                size="lg"
-              />
+        {isAlreadyVoted ? (
+          <>
+            <div className="mb-4">
+              <p className="text-sm text-gray-500 mb-3">Você já avaliou {currentPlayer.profile?.name?.split(' ')[0]}</p>
+              <div className="flex justify-center">
+                <StarRating value={existingVoteData[currentPlayer.profile_id]?.rating || 0} onChange={() => {}} size="lg" />
+              </div>
+              <p className="text-sm font-medium text-green-600 mt-1">Nota: {existingVoteData[currentPlayer.profile_id]?.rating.toFixed(1)}</p>
             </div>
-            {ratings[currentPlayer.profile_id] > 0 && (
-              <p className="text-sm font-medium text-gray-500 mt-1">{ratings[currentPlayer.profile_id].toFixed(1)}</p>
+            {existingVoteData[currentPlayer.profile_id]?.comment && (
+              <p className="text-sm text-gray-500 italic mb-4">"{existingVoteData[currentPlayer.profile_id].comment}"</p>
             )}
-          </div>
-
-          <input
-            type="text"
-            placeholder="Comentário anônimo (opcional)"
-            value={comments[currentPlayer.profile_id] || ''}
-            onChange={e => setComments(prev => ({ ...prev, [currentPlayer.profile_id]: e.target.value }))}
-            disabled={isVoted}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none mb-4 disabled:bg-gray-100 text-gray-900"
-          />
-        </>
-
-        {isJustVoted ? (
-          <div className="bg-green-50 text-green-700 py-3 rounded-xl font-medium text-center">
-            Voto enviado! {queueIndex < totalQueue - 1 ? 'Avançando...' : ''}
-          </div>
+            <button onClick={advanceToNext}
+              className="w-full bg-gray-200 text-gray-700 py-3 rounded-xl hover:bg-gray-300 transition font-medium flex items-center justify-center gap-2">
+              Próximo
+            </button>
+          </>
         ) : (
-          <button onClick={handleSubmitAndNext} disabled={!hasRating || submitting}
-            className="w-full bg-purple-600 text-white py-3 rounded-xl hover:bg-purple-700 transition font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-            <Send size={18} /> {submitting ? 'Enviando...' : queueIndex < totalQueue - 1 ? 'Enviar e Próximo' : 'Enviar Voto'}
-          </button>
+          <>
+            <div className="mb-4">
+              <p className="text-sm text-gray-500 mb-3">Qual nota {currentPlayer.profile?.name?.split(' ')[0]} merece?</p>
+              <div className="flex justify-center">
+                <StarRating
+                  value={ratings[currentPlayer.profile_id] || 0}
+                  onChange={(val) => {
+                    if (!isVoted) setRatings(prev => ({ ...prev, [currentPlayer.profile_id]: val }))
+                  }}
+                  size="lg"
+                />
+              </div>
+              {ratings[currentPlayer.profile_id] > 0 && (
+                <p className="text-sm font-medium text-gray-500 mt-1">{ratings[currentPlayer.profile_id].toFixed(1)}</p>
+              )}
+            </div>
+
+            <input
+              type="text"
+              placeholder="Comentário anônimo (opcional)"
+              value={comments[currentPlayer.profile_id] || ''}
+              onChange={e => setComments(prev => ({ ...prev, [currentPlayer.profile_id]: e.target.value }))}
+              disabled={isVoted}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none mb-4 disabled:bg-gray-100 text-gray-900"
+            />
+
+            {isJustVoted ? (
+              <div className="bg-green-50 text-green-700 py-3 rounded-xl font-medium text-center">
+                Voto enviado! {currentIndex + 1 < players.length ? 'Avançando...' : ''}
+              </div>
+            ) : (
+              <button onClick={handleSubmitAndNext} disabled={!hasRating || submitting}
+                className="w-full bg-purple-600 text-white py-3 rounded-xl hover:bg-purple-700 transition font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                <Send size={18} /> {submitting ? 'Enviando...' : currentIndex + 1 < players.length ? 'Enviar e Próximo' : 'Enviar Voto'}
+              </button>
+            )}
+          </>
         )}
       </div>
 

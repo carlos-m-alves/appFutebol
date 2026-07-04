@@ -48,19 +48,44 @@ export function MatchDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match?.group_id])
 
+  const myProfileId = profile?.id || null
+  const isAdmin = currentGroupRole === 'ADMIN'
+
   const userAllVoted = useMemo(() => {
     if (!profile || !players.length || !ratings.length) return false
     const myRatings = ratings.filter(r => r.rater_profile_id === profile.id)
-    const eligiblePlayers = players.filter(p => p.profile_id !== profile.id && !p.no_show)
+    const eligiblePlayers = players.filter(p => p.profile_id !== profile.id && p.profile_id && !p.no_show)
     return eligiblePlayers.length > 0 && eligiblePlayers.every(pl => myRatings.some(r => r.rated_profile_id === pl.profile_id))
   }, [profile, players, ratings])
+
+  const allEligibleVoted = useMemo(() => {
+    if (!players.length || !ratings.length) return false
+    const voters = players.filter(p => p.profile_id && !p.no_show)
+    const ratees = players.filter(p => p.profile_id && !p.no_show)
+    if (voters.length === 0 || ratees.length === 0) return false
+    return voters.every(voter => {
+      const myRatings = ratings.filter(r => r.rater_profile_id === voter.profile_id)
+      const expected = ratees.filter(r => r.profile_id !== voter.profile_id)
+      return expected.length > 0 && expected.every(r => myRatings.some(rt => rt.rated_profile_id === r.profile_id))
+    })
+  }, [players, ratings])
+
+  const votersCount = useMemo(() => players.filter(p => p.profile_id && !p.no_show).length, [players])
+  const uniqueVoterCount = useMemo(() => new Set(ratings.map(r => r.rater_profile_id)).size, [ratings])
+
+  useEffect(() => {
+    if (!isAdmin || !id || !match) return
+    if (match.evaluation_open && !match.evaluation_closed && allEligibleVoted) {
+      calculateAwards(id).then(() => {
+        updateStatus({ matchId: id, evaluation_open: false, evaluation_closed: true })
+      })
+    }
+  }, [allEligibleVoted, match?.evaluation_open, match?.evaluation_closed, isAdmin, id])
 
   if (loadingMatch) return <div className="text-center py-8">Carregando...</div>
   if (!match) return <div className="text-center py-8 text-red-600">Partida não encontrada</div>
 
-  const myProfileId = profile?.id || null
-  const isParticipant = players.some(p => p.profile_id === myProfileId) || confirmations.some(c => c.profile_id === myProfileId && c.status === 'CONFIRMED')
-  const isAdmin = currentGroupRole === 'ADMIN'
+  const isParticipant = players.some(p => p.profile_id === myProfileId && !p.no_show) || confirmations.some(c => c.profile_id === myProfileId && c.status === 'CONFIRMED')
   const canVote = match.evaluation_open && !match.evaluation_closed && isParticipant && !userAllVoted
   const awaitingEvaluation = match.evaluation_open && !match.evaluation_closed && isParticipant && userAllVoted
 
@@ -177,15 +202,29 @@ export function MatchDetailPage() {
         </div>
       )}
 
-      {match.evaluation_open && !match.evaluation_closed && isAdmin && (
+      {match.evaluation_open && !match.evaluation_closed && isAdmin && !allEligibleVoted && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
           <p className="text-yellow-800 font-medium mb-2">Votação em andamento</p>
+          <p className="text-sm text-yellow-700 mb-3">
+            {ratings.length > 0
+              ? `${uniqueVoterCount} de ${votersCount} jogadores já votaram`
+              : 'Aguardando votos...'}
+          </p>
           <button onClick={async () => { if (!id) return; await calculateAwards(id); await updateStatus({ matchId: id, evaluation_open: false, evaluation_closed: true }) }}
             className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition text-sm">
             Encerrar Votação e Calcular Prêmios
           </button>
         </div>
       )}
+
+      {match.evaluation_open && !match.evaluation_closed && !isAdmin && allEligibleVoted && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-6 text-center">
+          <h2 className="font-bold text-lg mb-2 text-gray-900">Votação encerrada!</h2>
+          <p className="text-sm text-gray-600">Todos os jogadores já votaram. Aguarde o cálculo dos prêmios.</p>
+        </div>
+      )}
+
+
 
       {(match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS') && (
         <ManagePlayersPanel matchId={match.id} groupId={match.group_id} players={players} teams={teams} isAdmin={isAdmin} />
@@ -195,8 +234,8 @@ export function MatchDetailPage() {
         <MatchAdminPanel matchId={match.id} teams={teams} players={players} groupMembers={groupMembers} />
       )}
 
-      {isAdmin && match.status === 'FINISHED' && (
-        <MatchStatsPanel match={match} players={players} teams={teams} groupMembers={groupMembers} ratings={ratings} />
+      {match.status === 'FINISHED' && (
+        <MatchStatsPanel match={match} players={players} teams={teams} groupMembers={groupMembers} ratings={ratings} isAdmin={isAdmin} />
       )}
 
       {canVote && !awards && (
@@ -321,8 +360,8 @@ function MatchAdminPanel({ matchId, teams, players, groupMembers }: {
   )
 }
 
-function MatchStatsPanel({ match, players, teams, groupMembers, ratings }: {
-  match: any; players: MatchPlayer[]; teams: Team[]; groupMembers: any[]; ratings: PlayerRating[]
+function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin }: {
+  match: any; players: MatchPlayer[]; teams: Team[]; groupMembers: any[]; ratings: PlayerRating[]; isAdmin: boolean
 }) {
   const [playerStats, setPlayerStats] = useState<Record<string, {
     teamId: string; goals: number; assists: number; own_goals: number
@@ -391,46 +430,57 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings }: {
       }
     }
 
-    const allStats = Object.entries(playerStats)
-    const registered = allStats
-      .filter(([id]) => players.find(p => p.id === id)?.profile_id)
-      .map(([id, data]) => ({
-        profile_id: players.find(p => p.id === id)!.profile_id,
-        team_id: data.teamId || undefined,
-        goals: data.goals,
-        assists: data.assists,
-        own_goals: data.own_goals,
-        nutmeg_given: data.nutmeg_given,
-        nutmeg_done: data.nutmeg_done,
-        no_show: data.no_show
-      }))
-    const guests = allStats
-      .filter(([id]) => !players.find(p => p.id === id)?.profile_id)
-      .map(([id, data]) => ({
-        id,
-        team_id: data.teamId || undefined,
-        goals: data.goals,
-        assists: data.assists,
-        own_goals: data.own_goals,
-        nutmeg_given: data.nutmeg_given,
-        nutmeg_done: data.nutmeg_done,
-        no_show: data.no_show
-      }))
-    const results = Object.entries(scores).map(([team_id, score]) => ({ team_id, score }))
+    try {
+      const allStats = Object.entries(playerStats)
+      const registered = allStats
+        .filter(([id]) => players.find(p => p.id === id)?.profile_id)
+        .map(([id, data]) => ({
+          profile_id: players.find(p => p.id === id)!.profile_id,
+          team_id: data.teamId || undefined,
+          goals: data.goals,
+          assists: data.assists,
+          own_goals: data.own_goals,
+          nutmeg_given: data.nutmeg_given,
+          nutmeg_done: data.nutmeg_done,
+          no_show: data.no_show
+        }))
+      const guests = allStats
+        .filter(([id]) => !players.find(p => p.id === id)?.profile_id)
+        .map(([id, data]) => ({
+          id,
+          match_id: match!.id,
+          team_id: data.teamId || undefined,
+          goals: data.goals,
+          assists: data.assists,
+          own_goals: data.own_goals,
+          nutmeg_given: data.nutmeg_given,
+          nutmeg_done: data.nutmeg_done,
+          no_show: data.no_show
+        }))
+      const results = Object.entries(scores).map(([team_id, score]) => ({ team_id, score }))
 
-    const promises: Promise<any>[] = []
-    if (registered.length > 0) {
-      promises.push(savePlayers({ matchId: match.id, players: registered }))
-    }
-    if (guests.length > 0) {
-      promises.push(updateGuestStats(guests))
-    }
-    if (results.length > 0) {
-      promises.push(saveResults({ matchId: match.id, results }))
-    }
+      const errors: string[] = []
+      if (registered.length > 0) {
+        try { await savePlayers({ matchId: match.id, players: registered }) }
+        catch (e: any) { errors.push(`Jogadores: ${e.message}`) }
+      }
+      if (guests.length > 0) {
+        try { await updateGuestStats(guests) }
+        catch (e: any) { errors.push(`Convidados: ${e.message}`) }
+      }
+      if (results.length > 0) {
+        try { await saveResults({ matchId: match.id, results }) }
+        catch (e: any) { errors.push(`Resultados: ${e.message}`) }
+      }
 
-    await Promise.all(promises)
-    showToast('Estatísticas salvas com sucesso!')
+      if (errors.length === 0) {
+        showToast('Estatísticas salvas com sucesso!')
+      } else {
+        showToast('Estatísticas salvas, mas com erros: ' + errors.join('; '), 'error')
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Erro ao salvar estatísticas', 'error')
+    }
   }
 
   const allPlayers = players.length > 0 ? players : groupMembers.map((gm: any) => ({
@@ -442,7 +492,7 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings }: {
 
   function playerHasVoted(profileId: string | null) {
     if (!profileId) return false
-    const eligiblePlayers = players.filter(p => p.profile_id !== profileId && !p.no_show)
+    const eligiblePlayers = players.filter(p => p.profile_id !== profileId && p.profile_id && !p.no_show)
     if (eligiblePlayers.length === 0) return false
     const playerRatings = ratings.filter(r => r.rater_profile_id === profileId)
     return eligiblePlayers.every(ep => playerRatings.some(r => r.rated_profile_id === ep.profile_id))
@@ -571,12 +621,16 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings }: {
                               </div>
                             </div>
                           </div>
-                          <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-red-400 cursor-pointer bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition shrink-0">
-                            <input type="checkbox" checked={playerStats[p.id]?.no_show || false}
-                              onChange={e => updateStat(p.id, 'no_show', e.target.checked)}
-                              className="w-3 h-3 text-red-500 rounded focus:ring-red-500/50 bg-white/[0.08] border-white/[0.15]" />
-                            Furão
-                          </label>
+                          {isAdmin ? (
+                            <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-red-400 cursor-pointer bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition shrink-0">
+                              <input type="checkbox" checked={playerStats[p.id]?.no_show || false}
+                                onChange={e => updateStat(p.id, 'no_show', e.target.checked)}
+                                className="w-3 h-3 text-red-500 rounded focus:ring-red-500/50 bg-white/[0.08] border-white/[0.15]" />
+                              Furão
+                            </label>
+                          ) : playerStats[p.id]?.no_show ? (
+                            <span className="text-[10px] font-black uppercase tracking-wider text-red-400 bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 shrink-0">Furão</span>
+                          ) : null}
                         </div>
                         {!playerStats[p.id]?.no_show && (
                           <div className="grid grid-cols-5 gap-2">
@@ -589,8 +643,14 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings }: {
                             ].map(stat => (
                               <div key={stat.key}>
                                 <label className={`text-[9px] font-black uppercase tracking-wider block mb-1 ${stat.color}`}>{stat.label}</label>
-                                <StatStepper value={(playerStats[p.id] as any)?.[stat.key] ?? 0}
-                                  onChange={v => updateStat(p.id, stat.key, v)} />
+                                {isAdmin ? (
+                                  <StatStepper value={(playerStats[p.id] as any)?.[stat.key] ?? 0}
+                                    onChange={v => updateStat(p.id, stat.key, v)} />
+                                ) : (
+                                  <div className="text-center text-white font-bold text-sm py-1.5 bg-white/[0.04] rounded-lg border border-white/[0.06]">
+                                    {(playerStats[p.id] as any)?.[stat.key] ?? 0}
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -640,12 +700,16 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings }: {
                             </div>
                           </div>
                         </div>
-                        <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-red-400 cursor-pointer bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition shrink-0">
-                          <input type="checkbox" checked={playerStats[p.id]?.no_show || false}
-                            onChange={e => updateStat(p.id, 'no_show', e.target.checked)}
-                            className="w-3 h-3 text-red-500 rounded focus:ring-red-500/50 bg-white/[0.08] border-white/[0.15]" />
-                          Furão
-                        </label>
+                        {isAdmin ? (
+                          <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-red-400 cursor-pointer bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition shrink-0">
+                            <input type="checkbox" checked={playerStats[p.id]?.no_show || false}
+                              onChange={e => updateStat(p.id, 'no_show', e.target.checked)}
+                              className="w-3 h-3 text-red-500 rounded focus:ring-red-500/50 bg-white/[0.08] border-white/[0.15]" />
+                            Furão
+                          </label>
+                        ) : playerStats[p.id]?.no_show ? (
+                          <span className="text-[10px] font-black uppercase tracking-wider text-red-400 bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 shrink-0">Furão</span>
+                        ) : null}
                       </div>
                       {!playerStats[p.id]?.no_show && (
                         <div className="grid grid-cols-5 gap-2">
@@ -658,9 +722,15 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings }: {
                           ].map(stat => (
                             <div key={stat.key}>
                               <label className={`text-[9px] font-black uppercase tracking-wider block mb-1 ${stat.color}`}>{stat.label}</label>
-                              <input type="number" min={0} value={(playerStats[p.id] as any)?.[stat.key] ?? 0}
-                                onChange={e => updateStat(p.id, stat.key, parseInt(e.target.value) || 0)}
-                                className="w-full px-1.5 py-1.5 bg-white/[0.06] border border-white/[0.10] rounded-lg text-xs font-bold text-white text-center outline-none focus:ring-1 focus:ring-yellow-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                              {isAdmin ? (
+                                <input type="number" min={0} value={(playerStats[p.id] as any)?.[stat.key] ?? 0}
+                                  onChange={e => updateStat(p.id, stat.key, parseInt(e.target.value) || 0)}
+                                  className="w-full px-1.5 py-1.5 bg-white/[0.06] border border-white/[0.10] rounded-lg text-xs font-bold text-white text-center outline-none focus:ring-1 focus:ring-yellow-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                              ) : (
+                                <div className="text-center text-white font-bold text-sm py-1.5 bg-white/[0.04] rounded-lg border border-white/[0.06]">
+                                  {(playerStats[p.id] as any)?.[stat.key] ?? 0}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -679,10 +749,12 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings }: {
           </div>
         )}
 
-        <button onClick={handleSaveStats} disabled={saving}
-          className="w-full mt-6 py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-[#0a0e17] rounded-xl font-black text-sm uppercase tracking-wider hover:from-yellow-400 hover:to-amber-500 transition-all duration-200 shadow-lg shadow-yellow-500/25 disabled:opacity-50">
-          {saving ? 'Salvando...' : 'Salvar Estatísticas e Placar'}
-        </button>
+        {isAdmin && (
+          <button onClick={handleSaveStats} disabled={saving}
+            className="w-full mt-6 py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-[#0a0e17] rounded-xl font-black text-sm uppercase tracking-wider hover:from-yellow-400 hover:to-amber-500 transition-all duration-200 shadow-lg shadow-yellow-500/25 disabled:opacity-50">
+            {saving ? 'Salvando...' : 'Salvar Estatísticas e Placar'}
+          </button>
+        )}
       </div>
     </div>
   )

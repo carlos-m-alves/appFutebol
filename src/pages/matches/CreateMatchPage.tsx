@@ -66,6 +66,7 @@ export function CreateMatchPage() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
           <input type="date" value={matchDate} onChange={e => setMatchDate(e.target.value)} required
+            min={new Date().toISOString().split('T')[0]}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
         </div>
 

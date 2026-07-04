@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
 import { groupService, matchService, groupJoinRequestService } from '../../services/api'
 import { supabase } from '../../lib/supabase'
 import type { Group, GroupMember, Match, Team, MatchResult, MatchPlayer, GroupJoinRequest } from '../../types'
-import { Plus, LogIn, Users, ArrowRight, Trash2, Crown, Shield, Calendar, MapPin, Trophy, ChevronRight, Check, X, Clock, UserPlus, Search, Send } from 'lucide-react'
+import { Plus, LogIn, Users, ArrowRight, Trash2, Crown, Shield, Calendar, MapPin, Trophy, ChevronRight, Check, X, Clock, UserPlus, Search, Send, DollarSign, QrCode, Edit3 } from 'lucide-react'
 import { MATCH_STATUS } from '../../lib/constants'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
+import { QRCodeModal } from '../../components/groups/QRCodeModal'
 
 export function GroupsListPage() {
   const { profile } = useAuth()
@@ -323,6 +324,14 @@ export function JoinGroupPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const { profile } = useAuth()
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    const codeParam = searchParams.get('code')
+    if (codeParam) {
+      setCode(codeParam.toUpperCase())
+    }
+  }, [searchParams])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -517,6 +526,9 @@ function GroupSettingsContent() {
   const [demotingMember, setDemotingMember] = useState<string | null>(null)
   const [showLeaveModal, setShowLeaveModal] = useState(false)
   const [matchPage, setMatchPage] = useState(1)
+  const [showQRCode, setShowQRCode] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [editNameValue, setEditNameValue] = useState('')
   const MATCHES_PER_PAGE = 10
 
   useEffect(() => {
@@ -582,6 +594,18 @@ function GroupSettingsContent() {
     } catch { alert('Erro ao rebaixar membro') }
   }
 
+  async function handleUpdateGroupName(newName: string) {
+    if (!currentGroup || !newName.trim() || newName.trim() === currentGroup.name) {
+      setEditingName(false)
+      return
+    }
+    try {
+      await groupService.update(currentGroup.id, { name: newName.trim() })
+      setCurrentGroup({ ...currentGroup, name: newName.trim() })
+      setEditingName(false)
+    } catch { alert('Erro ao atualizar nome do grupo') }
+  }
+
   async function handleLeave() {
     if (!profile || !currentGroup) return
     try {
@@ -599,7 +623,10 @@ function GroupSettingsContent() {
     CANCELLED: 'bg-red-100 text-red-800'
   }
 
-  const nextMatch = matches.filter(m => m.status === 'SCHEDULED' || m.status === 'CONFIRMED').sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())[0]
+  const upcomingAll = matches.filter(m => m.status === 'SCHEDULED' || m.status === 'CONFIRMED').sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
+  const nextMatch = upcomingAll[0]
+  const upcomingMatches = upcomingAll.slice(1)
+  const inProgressMatches = matches.filter(m => m.status === 'IN_PROGRESS').sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
   const finishedMatches = matches.filter(m => m.status === 'FINISHED').sort((a, b) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime())
   const totalMatchPages = Math.max(1, Math.ceil(finishedMatches.length / MATCHES_PER_PAGE))
   const paginatedMatches = finishedMatches.slice((matchPage - 1) * MATCHES_PER_PAGE, matchPage * MATCHES_PER_PAGE)
@@ -627,12 +654,37 @@ function GroupSettingsContent() {
             <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-yellow-500/20 shrink-0">
               <Users size={24} className="text-[#0a0e17]" />
             </div>
-            <div className="min-w-0">
-              <h1 className="text-white font-black text-2xl tracking-tight truncate">{currentGroup.name}</h1>
-              {currentGroup.description && (
-                <p className="text-gray-400 text-sm mt-0.5">{currentGroup.description}</p>
-              )}
-            </div>
+              <div className="min-w-0 flex-1">
+               {editingName ? (
+                 <div className="flex items-center gap-2">
+                   <input type="text" value={editNameValue}
+                     onChange={e => setEditNameValue(e.target.value)}
+                     onKeyDown={e => { if (e.key === 'Enter') handleUpdateGroupName(editNameValue); if (e.key === 'Escape') setEditingName(false) }}
+                     className="flex-1 px-3 py-1.5 bg-white/[0.08] border border-white/20 rounded-lg text-white font-black text-2xl tracking-tight outline-none focus:ring-2 focus:ring-yellow-500" autoFocus />
+                   <button onClick={() => handleUpdateGroupName(editNameValue)}
+                     className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg transition-all" title="Salvar">
+                     <Check size={18} />
+                   </button>
+                   <button onClick={() => setEditingName(false)}
+                     className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all" title="Cancelar">
+                     <X size={18} />
+                   </button>
+                 </div>
+               ) : (
+                 <div className="flex items-center gap-2">
+                   <h1 className="text-white font-black text-2xl tracking-tight truncate">{currentGroup.name}</h1>
+                   {currentGroupRole === 'ADMIN' && (
+                     <button onClick={() => { setEditNameValue(currentGroup.name); setEditingName(true) }}
+                       className="p-1.5 text-gray-500 hover:text-yellow-400 hover:bg-yellow-500/10 rounded-lg transition-all shrink-0" title="Editar nome">
+                       <Edit3 size={16} />
+                     </button>
+                   )}
+                 </div>
+               )}
+               {currentGroup.description && (
+                 <p className="text-gray-400 text-sm mt-0.5">{currentGroup.description}</p>
+               )}
+             </div>
           </div>
           <div className="flex items-center gap-4 text-[11px]">
             <span className="text-gray-500 flex items-center gap-1.5">
@@ -640,6 +692,10 @@ function GroupSettingsContent() {
               <span className="font-mono font-black text-yellow-400/90 bg-yellow-500/10 px-2 py-0.5 rounded-md border border-yellow-500/20">
                 {currentGroup.access_code}
               </span>
+              <button onClick={() => setShowQRCode(true)}
+                className="text-yellow-400/80 hover:text-yellow-400 transition-colors ml-1" title="Compartilhar QR Code">
+                <QrCode size={16} />
+              </button>
             </span>
             <span className="text-gray-500">
               Criado em {new Date(currentGroup.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
@@ -648,13 +704,19 @@ function GroupSettingsContent() {
         </div>
       </div>
 
-      {/* Create Match Button (admin only) */}
-      {currentGroupRole === 'ADMIN' && (
-        <Link to="/matches/new"
-          className="flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-[#0a0e17] rounded-xl font-black text-sm hover:from-yellow-400 hover:to-amber-500 transition-all duration-200 shadow-lg shadow-yellow-500/25">
-          <Plus size={18} /> Criar Partida
+      {/* Action Buttons */}
+      <div className="flex gap-3">
+        <Link to={`/groups/${currentGroup.id}/financas`}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-white/[0.06] text-white rounded-xl font-black text-sm hover:bg-white/[0.10] transition-all duration-200 border border-white/[0.08]">
+          <DollarSign size={18} /> Finanças
         </Link>
-      )}
+        {currentGroupRole === 'ADMIN' && (
+          <Link to="/matches/new"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-[#0a0e17] rounded-xl font-black text-sm hover:from-yellow-400 hover:to-amber-500 transition-all duration-200 shadow-lg shadow-yellow-500/25">
+            <Plus size={18} /> Criar Partida
+          </Link>
+        )}
+      </div>
 
       {/* Next Match Card */}
       {nextMatch && (
@@ -684,6 +746,44 @@ function GroupSettingsContent() {
                 <ChevronRight size={18} className="text-gray-600 group-hover:text-yellow-400 transition-colors" />
               </div>
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* In Progress Matches */}
+      {inProgressMatches.length > 0 && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a2332] via-[#0f1722] to-[#0a0f18] border border-yellow-500/20 shadow-[0_0_40px_rgba(0,0,0,0.4)]">
+          <div className="absolute -top-16 -right-16 w-40 h-40 bg-gradient-to-br from-yellow-500/10 to-transparent rounded-full blur-3xl" />
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-yellow-500/40 to-transparent" />
+          <div className="relative px-6 pt-5 pb-5">
+            <h2 className="font-black text-sm uppercase tracking-[0.15em] text-yellow-400/80 mb-4 flex items-center gap-2">
+              <Calendar size={16} /> Em Andamento
+              <span className="text-[10px] text-gray-600 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06] ml-auto">
+                {inProgressMatches.length}
+              </span>
+            </h2>
+            <div className="space-y-2">
+              {inProgressMatches.map(m => <MatchRowSmall key={m.id} match={m} />)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming Matches */}
+      {upcomingMatches.length > 0 && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a2332] via-[#0f1722] to-[#0a0f18] border border-blue-500/20 shadow-[0_0_40px_rgba(0,0,0,0.4)]">
+          <div className="absolute -top-16 -right-16 w-40 h-40 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full blur-3xl" />
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500/40 to-transparent" />
+          <div className="relative px-6 pt-5 pb-5">
+            <h2 className="font-black text-sm uppercase tracking-[0.15em] text-blue-400/80 mb-4 flex items-center gap-2">
+              <Calendar size={16} /> Próximas Partidas
+              <span className="text-[10px] text-gray-600 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06] ml-auto">
+                {upcomingMatches.length}
+              </span>
+            </h2>
+            <div className="space-y-2">
+              {upcomingMatches.map(m => <MatchRowSmall key={m.id} match={m} />)}
+            </div>
           </div>
         </div>
       )}
@@ -890,6 +990,14 @@ function GroupSettingsContent() {
         Sair do Grupo
       </button>
 
+      {showQRCode && currentGroup && (
+        <QRCodeModal
+          groupName={currentGroup.name}
+          accessCode={currentGroup.access_code}
+          onClose={() => setShowQRCode(false)}
+        />
+      )}
+
       <ConfirmModal
         open={!!demotingMember}
         title="Remover Administrador"
@@ -956,12 +1064,27 @@ function GroupSettingsContent() {
                     className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white font-black text-sm hover:from-red-400 hover:to-rose-500 transition-all duration-200 shadow-lg shadow-red-500/25">
                     Sair
                   </button>
-                </div>
+                    </div>
               </div>
             </div>
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+function MatchRowSmall({ match }: { match: Match & { results: (MatchResult & { team: Team })[]; players: MatchPlayer[] } }) {
+  return (
+    <Link to={`/matches/${match.id}`}
+      className="flex items-center justify-between p-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] transition-all duration-200 border border-white/[0.06] group">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-white">
+          {new Date(match.match_date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}
+        </p>
+        {match.location && <p className="text-xs text-gray-500 mt-0.5">{match.location}</p>}
+      </div>
+      <ChevronRight size={16} className="text-gray-600 group-hover:text-yellow-400 transition-colors" />
+    </Link>
   )
 }
