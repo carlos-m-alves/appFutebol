@@ -3,9 +3,10 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
 import { groupService, matchService, groupJoinRequestService } from '../../services/api'
+import { uploadGroupImage } from '../../services/storage'
 import { supabase } from '../../lib/supabase'
 import type { Group, GroupMember, Match, Team, MatchResult, MatchPlayer, GroupJoinRequest } from '../../types'
-import { Plus, LogIn, Users, ArrowRight, Trash2, Crown, Shield, Calendar, MapPin, Trophy, ChevronRight, Check, X, Clock, UserPlus, Search, Send, DollarSign, QrCode, Edit3 } from 'lucide-react'
+import { Plus, LogIn, Users, ArrowRight, Trash2, Crown, Shield, Calendar, MapPin, Trophy, ChevronRight, Check, X, Clock, UserPlus, Search, Send, DollarSign, QrCode, Edit3, Camera } from 'lucide-react'
 
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { QRCodeModal } from '../../components/groups/QRCodeModal'
@@ -529,6 +530,7 @@ function GroupSettingsContent() {
   const [showQRCode, setShowQRCode] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [editNameValue, setEditNameValue] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
   const MATCHES_PER_PAGE = 10
 
   useEffect(() => {
@@ -615,6 +617,20 @@ function GroupSettingsContent() {
     } catch { alert('Erro ao sair do grupo') }
   }
 
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !currentGroup) return
+    setUploadingImage(true)
+    try {
+      const url = await uploadGroupImage(file, currentGroup.id)
+      await groupService.update(currentGroup.id, { image_url: url })
+      setCurrentGroup({ ...currentGroup, image_url: url })
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao atualizar imagem do grupo')
+    }
+    setUploadingImage(false)
+  }
+
   const upcomingAll = matches.filter(m => m.status === 'SCHEDULED' || m.status === 'CONFIRMED').sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
   const nextMatch = upcomingAll[0]
   const upcomingMatches = upcomingAll.slice(1)
@@ -643,8 +659,23 @@ function GroupSettingsContent() {
 
         <div className="relative px-6 pb-6">
           <div className="flex items-center gap-4 mb-3">
-            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-yellow-500/20 shrink-0">
-              <Users size={24} className="text-[#0a0e17]" />
+            <div className="relative w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-yellow-500/20 shrink-0 overflow-hidden">
+              {currentGroup.image_url ? (
+                <img src={currentGroup.image_url} alt={currentGroup.name} className="w-full h-full object-cover" />
+              ) : (
+                <Users size={24} className="text-[#0a0e17]" />
+              )}
+              {currentGroupRole === 'ADMIN' && (
+                <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 cursor-pointer transition-opacity">
+                  <Camera size={18} className="text-white" />
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploadingImage} />
+                </label>
+              )}
+              {uploadingImage && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
             </div>
               <div className="min-w-0 flex-1">
                {editingName ? (

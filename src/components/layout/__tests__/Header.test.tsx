@@ -38,7 +38,7 @@ describe('Header', () => {
   }
 
   const groupContext = {
-    currentGroup: { id: 'g1', name: 'Group 1', description: null, access_code: 'ABC', created_by: 'p1', created_at: '' },
+    currentGroup: { id: 'g1', name: 'Group 1', description: null, access_code: 'ABC', created_by: 'p1', created_at: '', image_url: null },
     currentGroupRole: 'MEMBER' as const,
     setCurrentGroup: vi.fn(),
     groups: [],

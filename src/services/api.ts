@@ -262,6 +262,19 @@ export const matchService = {
     }
   },
 
+  async removeAttendance(matchId: string, profileId: string) {
+    await supabase
+      .from('match_confirmations')
+      .delete()
+      .eq('match_id', matchId)
+      .eq('profile_id', profileId)
+    await supabase
+      .from('match_players')
+      .delete()
+      .eq('match_id', matchId)
+      .eq('profile_id', profileId)
+  },
+
   async getTeams(matchId: string): Promise<Team[]> {
     const { data } = await supabase
       .from('teams')

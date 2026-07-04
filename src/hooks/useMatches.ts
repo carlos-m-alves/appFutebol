@@ -130,6 +130,19 @@ export function useMatchConfirmAttendance() {
   })
 }
 
+export function useMatchRemoveAttendance() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ matchId, profileId }: { matchId: string; profileId: string }) => {
+      await matchService.removeAttendance(matchId, profileId)
+    },
+    onSuccess: (_, { matchId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.matches.confirmations(matchId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.matches.players(matchId) })
+    },
+  })
+}
+
 export function useAddMatchPlayer() {
   const queryClient = useQueryClient()
   return useMutation({
