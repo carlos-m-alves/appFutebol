@@ -114,7 +114,7 @@ export function MatchDetailPage() {
             </div>
             <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
               <Calendar size={24} className="text-green-600" />
-              {new Date(match.match_date).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {(() => { const d = new Date(match.match_date); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).slice(-2)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` })()}
             </h1>
             {match.location && (
               <p className="text-gray-500 flex items-center gap-1 mt-1"><MapPin size={16} /> {match.location}</p>
@@ -152,7 +152,7 @@ export function MatchDetailPage() {
                   </button>
                   <button onClick={async () => { if (confirm('Cancelar esta partida?')) { if (id) updateStatus({ matchId: id, status: 'CANCELLED' }) } }}
                     className="bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition text-sm">
-                    Cancelar
+                    Cancelar partida
                   </button>
                 </>
               )}
@@ -527,13 +527,13 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
         {teams.length > 1 && (
           <div className="bg-white/[0.04] rounded-xl p-5 mb-6 border border-white/[0.06]">
             <h3 className="font-black text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-4">Placar</h3>
-            <div className="flex items-center justify-center gap-6 flex-wrap">
+            <div className="flex items-center justify-center gap-2 sm:gap-6">
               {teams.map((team, idx) => (
-                <div key={team.id} className="flex items-center gap-3">
-                  {idx > 0 && <span className="text-2xl font-black text-gray-600">×</span>}
-                  <div className="flex items-center gap-3 bg-white/[0.06] rounded-xl px-5 py-3 border border-white/[0.08]">
-                    <span className="text-sm font-black text-white uppercase tracking-wider">{team.name}</span>
-                    <span className="text-2xl font-black text-yellow-400 tabular-nums">{scores[team.id] ?? 0}</span>
+                <div key={team.id} className="flex items-center gap-1 sm:gap-3">
+                  {idx > 0 && <span className="text-xl sm:text-2xl font-black text-gray-600">×</span>}
+                  <div className="flex items-center gap-2 sm:gap-3 bg-white/[0.06] rounded-xl px-3 sm:px-5 py-2 sm:py-3 border border-white/[0.08]">
+                    <span className="text-[10px] sm:text-sm font-black text-white uppercase tracking-wider">{team.name}</span>
+                    <span className="text-lg sm:text-2xl font-black text-yellow-400 tabular-nums">{scores[team.id] ?? 0}</span>
                   </div>
                 </div>
               ))}
@@ -638,7 +638,7 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
                             </div>
                           </div>
                           {isAdmin ? (
-                            <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-red-400 cursor-pointer bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition shrink-0">
+                            <label onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-red-400 cursor-pointer bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition shrink-0">
                               <input type="checkbox" checked={playerStats[p.id]?.no_show || false}
                                 onChange={e => updateStat(p.id, 'no_show', e.target.checked)}
                                 className="w-3 h-3 text-red-500 rounded focus:ring-red-500/50 bg-white/[0.08] border-white/[0.15]" />
@@ -718,7 +718,7 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
                           </div>
                         </div>
                         {isAdmin ? (
-                          <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-red-400 cursor-pointer bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition shrink-0">
+                          <label onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-red-400 cursor-pointer bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition shrink-0">
                             <input type="checkbox" checked={playerStats[p.id]?.no_show || false}
                               onChange={e => updateStat(p.id, 'no_show', e.target.checked)}
                               className="w-3 h-3 text-red-500 rounded focus:ring-red-500/50 bg-white/[0.08] border-white/[0.15]" />
@@ -742,6 +742,7 @@ function MatchStatsPanel({ match, players, teams, groupMembers, ratings, isAdmin
                               {isAdmin ? (
                                 <input type="number" min={0} value={(playerStats[p.id] as any)?.[stat.key] ?? 0}
                                   onChange={e => updateStat(p.id, stat.key, parseInt(e.target.value) || 0)}
+                                  onClick={e => e.stopPropagation()}
                                   className="w-full px-1.5 py-1.5 bg-white/[0.06] border border-white/[0.10] rounded-lg text-xs font-bold text-white text-center outline-none focus:ring-1 focus:ring-yellow-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                               ) : (
                                 <div className="text-center text-white font-bold text-sm py-1.5 bg-white/[0.04] rounded-lg border border-white/[0.06]">
@@ -1197,14 +1198,14 @@ function PlayerSummaryModal({ player, groupId, onClose }: { player: MatchPlayer 
 function StatStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="flex items-center bg-white/[0.06] rounded-lg border border-white/[0.10] overflow-hidden">
-      <button type="button" onClick={() => onChange(Math.max(0, value - 1))}
+      <button type="button" onClick={e => { e.stopPropagation(); onChange(Math.max(0, value - 1)) }}
         className="px-2 sm:px-2.5 py-2 sm:py-1.5 text-gray-400 hover:text-white hover:bg-white/[0.10] transition font-black text-sm leading-none active:bg-white/[0.15]">
         −
       </button>
       <span className="w-7 sm:w-8 py-2 sm:py-1.5 text-xs font-black text-yellow-400 text-center leading-none tabular-nums select-none">
         {value}
       </span>
-      <button type="button" onClick={() => onChange(value + 1)}
+      <button type="button" onClick={e => { e.stopPropagation(); onChange(value + 1) }}
         className="px-2 sm:px-2.5 py-2 sm:py-1.5 text-gray-400 hover:text-white hover:bg-white/[0.10] transition font-black text-sm leading-none active:bg-white/[0.15]">
         +
       </button>

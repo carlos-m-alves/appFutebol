@@ -88,14 +88,12 @@ function MatchCard({ match }: { match: any }) {
 
   const teamAScorers = teamAPlayers.filter((p: any) => p.goals > 0)
   const teamBScorers = teamBPlayers.filter((p: any) => p.goals > 0)
+  const teamAOwnGoals = teamBPlayers.filter((p: any) => p.own_goals > 0)
+  const teamBOwnGoals = teamAPlayers.filter((p: any) => p.own_goals > 0)
 
   const statusLabel = MATCH_STATUS[match.status as keyof typeof MATCH_STATUS]
-  const dateStr = new Date(match.match_date).toLocaleDateString('pt-BR', {
-    day: 'numeric', month: 'short', year: 'numeric'
-  })
-  const fullDateStr = new Date(match.match_date).toLocaleDateString('pt-BR', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-  })
+  const fmtDate = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).slice(-2)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+  const dateStr = fmtDate(new Date(match.match_date))
 
   if (isFinished) {
     return (
@@ -114,7 +112,7 @@ function MatchCard({ match }: { match: any }) {
               </span>
             )}
           </div>
-          <span className="text-[11px] text-gray-500">{dateStr}</span>
+          <span className="text-[11px] text-gray-500 font-bold">{dateStr}</span>
         </div>
 
         {/* Scoreboard */}
@@ -159,10 +157,10 @@ function MatchCard({ match }: { match: any }) {
         )}
 
         {/* Goal scorers */}
-        {teamA && (teamAScorers.length > 0 || teamBScorers.length > 0) && (
+        {teamA && (teamAScorers.length > 0 || teamBScorers.length > 0 || teamAOwnGoals.length > 0 || teamBOwnGoals.length > 0) && (
           <div className="bg-white/5 px-5 py-3">
             <div className="flex justify-center gap-8">
-              {teamAScorers.length > 0 && (
+              {(teamAScorers.length > 0 || teamAOwnGoals.length > 0) && (
                 <div className="flex flex-col items-start gap-1">
                   {teamAScorers.map((p: any) => (
                     <span key={p.profile_id} className="text-[11px] text-gray-300 flex items-center gap-0.5">
@@ -171,15 +169,31 @@ function MatchCard({ match }: { match: any }) {
                       {p.goals > 1 && <span className="text-yellow-400 font-medium">({p.goals})</span>}
                     </span>
                   ))}
+                  {teamAOwnGoals.map((p: any) => (
+                    <span key={`og-${p.profile_id}`} className="text-[11px] text-gray-300 flex items-center gap-0.5">
+                      <Goal size={10} className="text-red-400 shrink-0" />
+                      <span className="truncate">{p.profile?.name?.split(' ')[0]}</span>
+                      <span className="text-red-400 text-[9px] font-medium">(g.c.)</span>
+                      {p.own_goals > 1 && <span className="text-red-400 font-medium">×{p.own_goals}</span>}
+                    </span>
+                  ))}
                 </div>
               )}
-              {teamBScorers.length > 0 && (
+              {(teamBScorers.length > 0 || teamBOwnGoals.length > 0) && (
                 <div className="flex flex-col items-start gap-1">
                   {teamBScorers.map((p: any) => (
                     <span key={p.profile_id} className="text-[11px] text-gray-300 flex items-center gap-0.5">
                       <Goal size={10} className="text-yellow-400 shrink-0" />
                       <span className="truncate">{p.profile?.name?.split(' ')[0]}</span>
                       {p.goals > 1 && <span className="text-yellow-400 font-medium">({p.goals})</span>}
+                    </span>
+                  ))}
+                  {teamBOwnGoals.map((p: any) => (
+                    <span key={`og-${p.profile_id}`} className="text-[11px] text-gray-300 flex items-center gap-0.5">
+                      <Goal size={10} className="text-red-400 shrink-0" />
+                      <span className="truncate">{p.profile?.name?.split(' ')[0]}</span>
+                      <span className="text-red-400 text-[9px] font-medium">(g.c.)</span>
+                      {p.own_goals > 1 && <span className="text-red-400 font-medium">×{p.own_goals}</span>}
                     </span>
                   ))}
                 </div>
@@ -249,12 +263,9 @@ function MatchCard({ match }: { match: any }) {
 
         {/* Player count */}
         <div className="px-5 py-2 border-t border-white/5">
-          <div className="flex items-center justify-between text-[10px] text-gray-500">
-            <span className="flex items-center gap-1">
-              <Users size={10} /> {match.players?.length || 0} jogadores
-            </span>
-            <span>{fullDateStr}</span>
-          </div>
+          <span className="flex items-center gap-1 text-[10px] text-gray-500">
+            <Users size={10} /> {match.players?.length || 0} jogadores
+          </span>
         </div>
       </Link>
     )
@@ -264,13 +275,15 @@ function MatchCard({ match }: { match: any }) {
     return (
       <Link to={`/matches/${match.id}`}
         className="block bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition">
+        <div className="mb-2">
+          <p className="text-xs font-bold text-gray-500 line-through">{dateStr}</p>
+        </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
               <Calendar className="text-red-400" size={24} />
             </div>
             <div>
-              <p className="font-medium text-gray-400 line-through">{fullDateStr}</p>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-800">
                   {statusLabel}
@@ -286,13 +299,15 @@ function MatchCard({ match }: { match: any }) {
   return (
       <Link to={`/matches/${match.id}`}
         className="block bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition">
+        <div className="mb-2">
+          <p className="text-xs font-bold text-gray-700">{dateStr}</p>
+        </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isInProgress ? 'bg-yellow-100' : 'bg-green-100'}`}>
               <Calendar className={isInProgress ? 'text-yellow-600' : 'text-green-600'} size={24} />
             </div>
             <div>
-              <p className="font-medium text-gray-900">{fullDateStr}</p>
             <div className="flex items-center gap-2 mt-1">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                 isInProgress ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'
@@ -313,7 +328,7 @@ function MatchCard({ match }: { match: any }) {
           </div>
         </div>
         {match.players?.length > 0 && (
-          <div className="flex items-center gap-1 text-xs text-gray-400">
+          <div className="flex items-center gap-1 text-xs text-gray-400 shrink-0">
             <Users size={12} /> {match.players.length}
           </div>
         )}
