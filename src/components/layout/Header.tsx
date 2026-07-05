@@ -11,6 +11,10 @@ const NAV_ITEMS = [
   { path: '/mapa', label: 'Quadras', icon: <MapPin size={18} /> },
 ]
 
+const HOME_NAV_ITEMS = NAV_ITEMS.filter(item =>
+  ['/dashboard', '/groups', '/mapa'].includes(item.path)
+)
+
 export function Header() {
   const { profile, signOut } = useAuth()
   const { currentGroup } = useGroup()
@@ -38,7 +42,7 @@ export function Header() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup).map(item => {
+            {(activePath === '/dashboard' ? HOME_NAV_ITEMS : NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup)).map(item => {
               const isActive = activePath === item.path || (item.path === '/dashboard' && activePath === '')
               return (
                 <Link key={item.path} to={item.path}
@@ -87,7 +91,7 @@ export function Header() {
 
         {/* Mobile nav */}
         <nav className="md:hidden flex items-center gap-1 pb-3 overflow-x-auto scrollbar-none">
-          {NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup).map(item => {
+          {(activePath === '/dashboard' ? HOME_NAV_ITEMS : NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup)).map(item => {
             const isActive = activePath === item.path || (item.path === '/dashboard' && activePath === '')
             return (
               <Link key={item.path} to={item.path}

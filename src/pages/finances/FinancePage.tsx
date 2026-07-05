@@ -169,24 +169,24 @@ export function FinancePage() {
             <p className="text-xs text-gray-500 mt-0.5">{currentGroup.name}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 flex-wrap justify-end">
           {isAdmin && (
             <>
               <button onClick={() => setShowPlayerFeesModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.06] text-gray-300 text-xs font-bold hover:bg-white/[0.10] transition-all border border-white/[0.08]">
-                <Users size={14} /> Jogadores
+                className="flex items-center gap-1 px-2.5 sm:px-3 py-2 rounded-xl bg-white/[0.06] text-gray-300 text-[11px] sm:text-xs font-bold hover:bg-white/[0.10] transition-all border border-white/[0.08]">
+                <Users size={13} /> Jogadores
               </button>
               <button onClick={() => setShowExpenseModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.06] text-gray-300 text-xs font-bold hover:bg-white/[0.10] transition-all border border-white/[0.08]">
-                <Plus size={14} /> Despesa
+                className="flex items-center gap-1 px-2.5 sm:px-3 py-2 rounded-xl bg-white/[0.06] text-gray-300 text-[11px] sm:text-xs font-bold hover:bg-white/[0.10] transition-all border border-white/[0.08]">
+                <Plus size={13} /> Despesa
               </button>
               <button onClick={() => setShowPaymentModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 transition-all border border-emerald-500/20">
-                <Plus size={14} /> Pagamento
+                className="flex items-center gap-1 px-2.5 sm:px-3 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 text-[11px] sm:text-xs font-bold hover:bg-emerald-500/20 transition-all border border-emerald-500/20">
+                <Plus size={13} /> Pagamento
               </button>
               <button onClick={() => setShowConfigModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-yellow-500/10 text-yellow-400 text-xs font-bold hover:bg-yellow-500/20 transition-all border border-yellow-500/20">
-                <Settings size={14} /> Configurar
+                className="flex items-center gap-1 px-2.5 sm:px-3 py-2 rounded-xl bg-yellow-500/10 text-yellow-400 text-[11px] sm:text-xs font-bold hover:bg-yellow-500/20 transition-all border border-yellow-500/20">
+                <Settings size={13} /> Configurar
               </button>
             </>
           )}

@@ -80,13 +80,13 @@ function PlayerRow({ player, rank }: { player: PlayerRankingStats; rank: number 
           <span className="text-red-400 text-xs font-black tabular-nums">{player.own_goals}</span>
           <span className="text-[8px] text-gray-600 uppercase leading-tight">GC</span>
         </div>
-        <div className="hidden md:flex flex-col items-center w-7">
+        <div className="flex flex-col items-center w-7">
           <span className="text-orange-400 text-xs font-black tabular-nums">{player.nutmeg_given}</span>
-          <span className="text-[8px] text-gray-600 uppercase leading-tight">CL</span>
+          <span className="text-[8px] text-gray-600 uppercase leading-tight">Tomou</span>
         </div>
-        <div className="hidden md:flex flex-col items-center w-7">
+        <div className="flex flex-col items-center w-7">
           <span className="text-emerald-400 text-xs font-black tabular-nums">{player.nutmeg_done}</span>
-          <span className="text-[8px] text-gray-600 uppercase leading-tight">CD</span>
+          <span className="text-[8px] text-gray-600 uppercase leading-tight">Deu</span>
         </div>
         <div className="flex items-center gap-1.5 pl-2 border-l border-white/10">
           <div className="flex flex-col items-center w-5">
@@ -206,8 +206,8 @@ export function RankingsPage() {
           <span className="text-[9px] text-gray-600 uppercase tracking-wider w-7 text-center">Gols</span>
           <span className="text-[9px] text-gray-600 uppercase tracking-wider w-7 text-center">Ass</span>
           <span className="hidden xs:inline text-[9px] text-gray-600 uppercase tracking-wider w-7 text-center">GC</span>
-          <span className="hidden md:inline text-[9px] text-gray-600 uppercase tracking-wider w-7 text-center">CL</span>
-          <span className="hidden md:inline text-[9px] text-gray-600 uppercase tracking-wider w-7 text-center">CD</span>
+          <span className="text-[9px] text-gray-600 uppercase tracking-wider w-7 text-center">Tomou</span>
+          <span className="text-[9px] text-gray-600 uppercase tracking-wider w-7 text-center">Deu</span>
           <span className="text-[9px] text-gray-600 uppercase tracking-wider pl-2 border-l border-white/10 flex items-center gap-1.5">
             <span className="w-5 text-center">V</span>
             <span className="w-5 text-center">E</span>
