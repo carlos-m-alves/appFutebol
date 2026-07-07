@@ -133,6 +133,7 @@ export function RegisterPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [weight, setWeight] = useState('')
   const [dominantFoot, setDominantFoot] = useState('')
@@ -164,6 +165,24 @@ export function RegisterPage() {
     setError(null)
 
     try {
+      if (password !== confirmPassword) {
+        setError('As senhas não conferem')
+        setLoading(false)
+        return
+      }
+
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle()
+
+      if (existingUser) {
+        setError('Este email já está cadastrado')
+        setLoading(false)
+        return
+      }
+
       let avatarUrl: string | undefined
 
       if (avatarFile) {
@@ -182,84 +201,124 @@ export function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 text-center">
-          <h1 className="text-2xl font-bold text-green-600 mb-4">Conta criada!</h1>
-          <p className="text-gray-600 mb-4">Enviamos um email de confirmação para {email}. Verifique sua caixa de entrada.</p>
-          <Link to="/login" className="text-green-600 hover:text-green-700 font-medium">Ir para o login</Link>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#0a0e17] via-[#0f1420] to-[#0a0e17] px-4 relative overflow-hidden">
+        <div className="fixed inset-0 pointer-events-none opacity-30"
+          style={{ background: 'radial-gradient(ellipse at 30% 50%, rgba(34,197,94,0.12) 0%, transparent 60%), radial-gradient(ellipse at 70% 20%, rgba(234,179,8,0.06) 0%, transparent 50%), radial-gradient(ellipse at 50% 80%, rgba(34,197,94,0.08) 0%, transparent 50%)' }} />
+        <div className="relative max-w-md w-full">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a2332]/80 via-[#0f1722]/80 to-[#0a0f18]/80 backdrop-blur-xl border border-white/[0.06] shadow-[0_0_40px_rgba(0,0,0,0.4)] p-8 text-center">
+            <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-yellow-500/8 to-transparent rounded-full blur-3xl" />
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-yellow-500/20 to-transparent" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-600 shadow-lg shadow-yellow-500/25 mb-4">
+              <Swords size={30} className="text-[#0a0e17]" />
+            </div>
+            <h1 className="text-2xl font-black text-white tracking-tight mb-4">Conta criada!</h1>
+            <p className="text-gray-400 mb-6">Enviamos um email de confirmação para {email}. Verifique sua caixa de entrada.</p>
+            <Link to="/login" className="inline-block text-yellow-500/80 hover:text-yellow-400 transition-colors font-bold">Ir para o login</Link>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-green-600">PeladaFC</h1>
-          <p className="text-gray-500 mt-2">Crie sua conta</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#0a0e17] via-[#0f1420] to-[#0a0e17] px-4 relative overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none opacity-30"
+        style={{ background: 'radial-gradient(ellipse at 30% 50%, rgba(34,197,94,0.12) 0%, transparent 60%), radial-gradient(ellipse at 70% 20%, rgba(234,179,8,0.06) 0%, transparent 50%), radial-gradient(ellipse at 50% 80%, rgba(34,197,94,0.08) 0%, transparent 50%)' }} />
+
+      <div className="relative w-full max-w-md">
+        {/* logo section */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-600 shadow-lg shadow-yellow-500/25 mb-4">
+            <Swords size={30} className="text-[#0a0e17]" />
+          </div>
+          <h1 className="text-3xl font-black text-white tracking-tight">PeladaFC</h1>
+          <p className="text-gray-500 text-sm mt-1 font-medium">Crie sua conta</p>
         </div>
 
-        {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
+        {/* register card */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a2332]/80 via-[#0f1722]/80 to-[#0a0f18]/80 backdrop-blur-xl border border-white/[0.06] shadow-[0_0_40px_rgba(0,0,0,0.4)] p-8">
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-yellow-500/8 to-transparent rounded-full blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-gradient-to-br from-emerald-500/8 to-transparent rounded-full blur-3xl" />
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-yellow-500/20 to-transparent" />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col items-center">
-            <button type="button" onClick={() => fileRef.current?.click()}
-              className="relative w-24 h-24 bg-gray-100 rounded-full overflow-hidden hover:bg-gray-200 transition border-2 border-dashed border-gray-300 hover:border-green-500 flex items-center justify-center">
-              {avatarPreview ? (
-                <img src={avatarPreview} alt="Preview" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-3xl text-gray-400">+</span>
-              )}
+          {error && (
+            <div className="relative mb-5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="relative space-y-4">
+            {/* avatar */}
+            <div className="flex flex-col items-center">
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-dashed border-white/[0.12] hover:border-yellow-500/40 transition flex items-center justify-center bg-white/[0.03]">
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-3xl text-gray-600">+</span>
+                )}
+              </button>
+              <span className="text-xs text-gray-600 mt-1">Foto de perfil (opcional, até 1MB)</span>
+              <input ref={fileRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nome</label>
+              <input type="text" value={name} onChange={e => setName(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-yellow-500/40 focus:border-yellow-500/40 outline-none transition-all text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-yellow-500/40 focus:border-yellow-500/40 outline-none transition-all text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Senha</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                required minLength={6}
+                className="w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-yellow-500/40 focus:border-yellow-500/40 outline-none transition-all text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Confirmar Senha</label>
+              <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                required minLength={6}
+                className="w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-yellow-500/40 focus:border-yellow-500/40 outline-none transition-all text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Data de Nascimento</label>
+              <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)}
+                className="w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-yellow-500/40 focus:border-yellow-500/40 outline-none transition-all text-sm [color-scheme:dark]" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Peso (kg)</label>
+              <input type="number" value={weight} onChange={e => setWeight(e.target.value)}
+                step="0.1" min="0" max="300" placeholder="Ex: 75.5"
+                className="w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-yellow-500/40 focus:border-yellow-500/40 outline-none transition-all text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Pé Dominante</label>
+              <select value={dominantFoot} onChange={e => setDominantFoot(e.target.value)}
+                className="w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-yellow-500/40 focus:border-yellow-500/40 outline-none transition-all text-sm">
+                <option value="" className="bg-[#0f1722]">Selecione</option>
+                {Object.entries(DOMINANT_FOOT_LABELS).map(([value, label]) => (
+                  <option key={value} value={value} className="bg-[#0f1722]">{label}</option>
+                ))}
+              </select>
+            </div>
+            <button type="submit" disabled={loading}
+              className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 text-[#0a0e17] py-3 rounded-xl font-black text-sm hover:from-yellow-400 hover:to-amber-500 transition-all duration-200 shadow-lg shadow-yellow-500/25 disabled:opacity-50">
+              {loading ? 'Criando...' : 'Criar conta'}
             </button>
-            <span className="text-xs text-gray-400 mt-1">Foto de perfil (opcional, até 1MB)</span>
-            <input ref={fileRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-          </div>
+          </form>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)}
-              required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
+          {/* link */}
+          <div className="relative mt-6 text-center">
+            <Link to="/login" className="text-sm text-yellow-500/80 hover:text-yellow-400 transition-colors font-bold">
+              Já tem conta? Entre
+            </Link>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-              required minLength={6} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
-            <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
-            <input type="number" value={weight} onChange={e => setWeight(e.target.value)}
-              step="0.1" min="0" max="300" placeholder="Ex: 75.5"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Pé Dominante</label>
-            <select value={dominantFoot} onChange={e => setDominantFoot(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900">
-              <option value="">Selecione</option>
-              {Object.entries(DOMINANT_FOOT_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
-          <button type="submit" disabled={loading}
-            className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
-            {loading ? 'Criando...' : 'Criar conta'}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <Link to="/login" className="text-sm text-green-600 hover:text-green-700">Já tem conta? Entre</Link>
         </div>
       </div>
     </div>
@@ -285,10 +344,12 @@ export function AuthCallbackPage() {
   }, [navigate])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#0a0e17] via-[#0f1420] to-[#0a0e17] px-4 relative overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none opacity-30"
+        style={{ background: 'radial-gradient(ellipse at 30% 50%, rgba(34,197,94,0.12) 0%, transparent 60%), radial-gradient(ellipse at 70% 20%, rgba(234,179,8,0.06) 0%, transparent 50%), radial-gradient(ellipse at 50% 80%, rgba(34,197,94,0.08) 0%, transparent 50%)' }} />
       <div className="text-center">
-        <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-gray-500">Completando login...</p>
+        <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-gray-400">Completando login...</p>
       </div>
     </div>
   )
@@ -310,33 +371,62 @@ export function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 text-center">
-          <h1 className="text-2xl font-bold text-green-600 mb-4">Email enviado!</h1>
-          <p className="text-gray-600 mb-4">Verifique sua caixa de entrada para redefinir sua senha.</p>
-          <Link to="/login" className="text-green-600 hover:text-green-700 font-medium">Voltar ao login</Link>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#0a0e17] via-[#0f1420] to-[#0a0e17] px-4 relative overflow-hidden">
+        <div className="fixed inset-0 pointer-events-none opacity-30"
+          style={{ background: 'radial-gradient(ellipse at 30% 50%, rgba(34,197,94,0.12) 0%, transparent 60%), radial-gradient(ellipse at 70% 20%, rgba(234,179,8,0.06) 0%, transparent 50%), radial-gradient(ellipse at 50% 80%, rgba(34,197,94,0.08) 0%, transparent 50%)' }} />
+        <div className="relative max-w-md w-full">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a2332]/80 via-[#0f1722]/80 to-[#0a0f18]/80 backdrop-blur-xl border border-white/[0.06] shadow-[0_0_40px_rgba(0,0,0,0.4)] p-8 text-center">
+            <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-yellow-500/8 to-transparent rounded-full blur-3xl" />
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-yellow-500/20 to-transparent" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-600 shadow-lg shadow-yellow-500/25 mb-4">
+              <Swords size={30} className="text-[#0a0e17]" />
+            </div>
+            <h1 className="text-2xl font-black text-white tracking-tight mb-4">Email enviado!</h1>
+            <p className="text-gray-400 mb-6">Verifique sua caixa de entrada para redefinir sua senha.</p>
+            <Link to="/login" className="inline-block text-yellow-500/80 hover:text-yellow-400 transition-colors font-bold">Voltar ao login</Link>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
-        <h1 className="text-2xl font-bold text-center mb-4">Recuperar senha</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#0a0e17] via-[#0f1420] to-[#0a0e17] px-4 relative overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none opacity-30"
+        style={{ background: 'radial-gradient(ellipse at 30% 50%, rgba(34,197,94,0.12) 0%, transparent 60%), radial-gradient(ellipse at 70% 20%, rgba(234,179,8,0.06) 0%, transparent 50%), radial-gradient(ellipse at 50% 80%, rgba(34,197,94,0.08) 0%, transparent 50%)' }} />
+
+      <div className="relative w-full max-w-md">
+        {/* logo section */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-600 shadow-lg shadow-yellow-500/25 mb-4">
+            <Swords size={30} className="text-[#0a0e17]" />
           </div>
-          <button type="submit" disabled={loading}
-            className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
-            {loading ? 'Enviando...' : 'Enviar link de recuperação'}
-          </button>
-        </form>
-        <div className="mt-4 text-center">
-          <Link to="/login" className="text-sm text-green-600">Voltar ao login</Link>
+          <h1 className="text-3xl font-black text-white tracking-tight">PeladaFC</h1>
+          <p className="text-gray-500 text-sm mt-1 font-medium">Recuperar senha</p>
+        </div>
+
+        {/* forgot password card */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a2332]/80 via-[#0f1722]/80 to-[#0a0f18]/80 backdrop-blur-xl border border-white/[0.06] shadow-[0_0_40px_rgba(0,0,0,0.4)] p-8">
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-yellow-500/8 to-transparent rounded-full blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-gradient-to-br from-emerald-500/8 to-transparent rounded-full blur-3xl" />
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-yellow-500/20 to-transparent" />
+
+          <form onSubmit={handleSubmit} className="relative space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-yellow-500/40 focus:border-yellow-500/40 outline-none transition-all text-sm" />
+            </div>
+            <button type="submit" disabled={loading}
+              className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 text-[#0a0e17] py-3 rounded-xl font-black text-sm hover:from-yellow-400 hover:to-amber-500 transition-all duration-200 shadow-lg shadow-yellow-500/25 disabled:opacity-50">
+              {loading ? 'Enviando...' : 'Enviar link de recuperação'}
+            </button>
+          </form>
+
+          <div className="relative mt-6 text-center">
+            <Link to="/login" className="text-sm text-yellow-500/80 hover:text-yellow-400 transition-colors font-bold">Voltar ao login</Link>
+          </div>
         </div>
       </div>
     </div>
