@@ -277,7 +277,7 @@ export function CreateGroupPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
-  const { refreshGroups } = useGroup()
+  const { setCurrentGroup, refreshGroups } = useGroup()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -286,8 +286,9 @@ export function CreateGroupPage() {
     try {
       const group = await groupService.create(name, description)
       if (group) {
+        setCurrentGroup(group)
         await refreshGroups()
-        navigate('/dashboard')
+        navigate(`/groups/${group.id}`)
       }
     } catch {
       setError('Erro ao criar grupo')

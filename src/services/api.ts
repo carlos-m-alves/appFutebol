@@ -15,31 +15,17 @@ export const groupService = {
     const { data: user } = await supabase.auth.getUser()
     if (!user?.user?.id) throw new Error('Usuário não autenticado')
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('auth_user_id', user.user.id)
-      .single()
-    if (!profile) throw new Error('Perfil não encontrado')
-
     const { data: code } = await supabase.rpc('generate_access_code')
     if (!code) throw new Error('Erro ao gerar código de acesso')
 
-    const { data: group, error } = await supabase
-      .from('groups')
-      .insert({ name: cleanName, description: cleanDescription, access_code: code, created_by: profile.id })
-      .select()
-      .single()
+    const { data: group, error } = await supabase.rpc('create_group', {
+      p_name: cleanName,
+      p_description: cleanDescription,
+      p_access_code: code,
+    })
 
     if (error) throw error
-    if (group) {
-      await supabase.from('group_members').insert({
-        group_id: group.id,
-        profile_id: profile.id,
-        role: 'ADMIN'
-      })
-    }
-    return group
+    return group as unknown as Group
   },
 
   async join(accessCode: string, profileId: string): Promise<Group> {

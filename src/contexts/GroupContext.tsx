@@ -49,20 +49,23 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   async function refreshGroups() {
     if (!profile) return
     setLoading(true)
-    const { data } = await supabase
+
+    const { data: memberData, error: memberError } = await supabase
       .from('group_members')
       .select('group_id')
       .eq('profile_id', profile.id)
-    if (!data) { setLoading(false); return }
+    if (memberError) { console.error('refreshGroups member error:', memberError); setLoading(false); return }
+    if (!memberData) { console.error('refreshGroups member data is null'); setLoading(false); return }
 
-    const ids = data.map(m => m.group_id)
-    if (ids.length === 0) { setLoading(false); return }
+    const ids = memberData.map(m => m.group_id)
+    if (ids.length === 0) { console.log('refreshGroups: no group memberships found'); setLoading(false); return }
 
-    const { data: groupsData } = await supabase
+    const { data: groupsData, error: groupsError } = await supabase
       .from('groups')
       .select('*')
       .in('id', ids)
       .order('created_at', { ascending: false })
+    if (groupsError) { console.error('refreshGroups groups error:', groupsError); setLoading(false); return }
 
     setGroups(groupsData ?? [])
     setLoading(false)
