@@ -13,6 +13,7 @@ dist
 dist-ssr
 *.local
 OAuth_google.txt
+OAuth*.txt
 img/
 
 # Editor directories and files
