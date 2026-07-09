@@ -252,3 +252,58 @@ export interface MatchStats {
   matches_played: number
   avg_rating: number | null
 }
+
+export type MarketType = 'WINNER' | 'TOP_SCORER' | 'TOP_ASSISTER' | 'BEST_PLAYER' | 'PLAYER_SCORES' | 'PLAYER_ASSIST' | 'PLAYER_NUTMEG' | 'PLAYER_NO_SHOW'
+
+export type MarketStatus = 'OPEN' | 'SETTLED'
+
+export type BetStatus = 'PENDING' | 'WON' | 'LOST' | 'CANCELLED'
+
+export type BetType = 'SINGLE' | 'MULTIPLE'
+
+export const MARKET_TYPE_LABELS: Record<MarketType, string> = {
+  WINNER: 'Vencedor',
+  TOP_SCORER: 'Artilheiro',
+  TOP_ASSISTER: 'Assistência',
+  BEST_PLAYER: 'Melhor Jogador',
+  PLAYER_SCORES: 'Faz Gol',
+  PLAYER_ASSIST: 'Dá Assistência',
+  PLAYER_NUTMEG: 'Aplica Caneta',
+  PLAYER_NO_SHOW: 'Furão',
+}
+
+export interface MatchMarket {
+  id: string
+  match_id: string
+  market_type: MarketType
+  label: string
+  odds: number
+  status: MarketStatus
+  result: boolean | null
+  player_id: string | null
+  team_id: string | null
+  created_at: string
+  player?: Profile | null
+  team?: Team | null
+}
+
+export interface Bet {
+  id: string
+  match_id: string
+  profile_id: string
+  bet_type: BetType
+  amount: number
+  total_odds: number
+  potential_payout: number
+  status: BetStatus
+  created_at: string
+  profile?: Profile | null
+  selections: (BetSelection & { market?: MatchMarket | null })[]
+}
+
+export interface BetSelection {
+  id: string
+  bet_id: string
+  market_id: string
+  market?: MatchMarket | null
+}

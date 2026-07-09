@@ -31,7 +31,7 @@ export function GroupsListPage() {
     if (!profile) { setLoading(false); return }
     setLoading(true)
 
-    const { data: groups } = await supabase.from('groups').select('*').order('name')
+    const { data: groups } = await supabase.from('groups').select('*').is('deleted_at', null).order('name')
     if (!groups) { setLoading(false); return }
 
     const { data: memberships } = await supabase
@@ -421,7 +421,7 @@ export function GroupSettingsPage() {
       }
     } else {
       setIsMember(false)
-      const { data } = await supabase.from('groups').select('*').eq('id', id).single()
+      const { data } = await supabase.from('groups').select('*').eq('id', id).is('deleted_at', null).single()
       setPublicGroup(data)
 
       const { data: members } = await supabase
@@ -527,6 +527,7 @@ function GroupSettingsContent() {
   const [removingMember, setRemovingMember] = useState<string | null>(null)
   const [demotingMember, setDemotingMember] = useState<string | null>(null)
   const [showLeaveModal, setShowLeaveModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [matchPage, setMatchPage] = useState(1)
   const [showQRCode, setShowQRCode] = useState(false)
   const [editingName, setEditingName] = useState(false)
@@ -607,6 +608,15 @@ function GroupSettingsContent() {
       setCurrentGroup({ ...currentGroup, name: newName.trim() })
       setEditingName(false)
     } catch { alert('Erro ao atualizar nome do grupo') }
+  }
+
+  async function handleDeleteGroup() {
+    if (!currentGroup) return
+    try {
+      await groupService.softDelete(currentGroup.id)
+      setCurrentGroup(null)
+      navigate('/groups')
+    } catch { alert('Erro ao excluir grupo') }
   }
 
   async function handleLeave() {
@@ -1013,6 +1023,61 @@ function GroupSettingsContent() {
         className="w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-[0.1em] text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200">
         Sair do Grupo
       </button>
+
+      {currentGroupRole === 'ADMIN' && (
+        <button onClick={() => setShowDeleteModal(true)}
+          className="w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-[0.1em] text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200">
+          Excluir Grupo
+        </button>
+      )}
+
+      {/* Delete Group Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowDeleteModal(false)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="relative w-full max-w-sm z-10"
+            onClick={e => e.stopPropagation()}>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#1a2332] via-[#0f1722] to-[#0a0f18] border border-red-500/30 shadow-[0_0_60px_rgba(0,0,0,0.6)]">
+              <div className="absolute -top-20 -right-20 w-48 h-48 bg-gradient-to-br from-red-500/15 to-transparent rounded-full blur-3xl" />
+              <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-gradient-to-br from-red-500/5 to-transparent rounded-full blur-3xl" />
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/60 to-transparent" />
+
+              <div className="relative px-6 pt-8 pb-6 text-center">
+                <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/30">
+                  <Trash2 size={28} className="text-[#0a0e17]" />
+                </div>
+
+                <h2 className="text-white font-black text-xl mb-2 tracking-tight">
+                  Excluir Grupo
+                </h2>
+
+                <p className="text-red-400/80 font-bold text-sm mb-4 uppercase tracking-wider">
+                  {currentGroup?.name}
+                </p>
+
+                <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 mb-6">
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Tem certeza que deseja excluir este grupo? Esta ação não pode ser desfeita.
+                    Todos os dados permanecem no banco, mas o grupo não será mais exibido para ninguém.
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button onClick={() => setShowDeleteModal(false)}
+                    className="flex-1 py-3 rounded-xl bg-white/[0.06] text-white font-bold text-sm hover:bg-white/[0.10] transition-all duration-200 border border-white/[0.08]">
+                    Cancelar
+                  </button>
+                  <button onClick={handleDeleteGroup}
+                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white font-black text-sm hover:from-red-400 hover:to-rose-500 transition-all duration-200 shadow-lg shadow-red-500/25">
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showQRCode && currentGroup && (
         <QRCodeModal

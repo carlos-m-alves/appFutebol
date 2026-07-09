@@ -16,3 +16,8 @@ export const FREQUENCY_LABELS = {
   MONTHLY: 'Mensal',
   CUSTOM: 'Personalizada'
 } as const
+
+export const BETTING_MIN_AMOUNT = 10
+export const BETTING_MAX_AMOUNT = 5000
+export const BETTING_DEFAULT_BALANCE = 5000
+export const BETTING_VIG = 0.95

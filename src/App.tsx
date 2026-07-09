@@ -6,7 +6,6 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { Layout } from './components/layout/Layout'
 import { LoginPage, RegisterPage, ForgotPasswordPage, AuthCallbackPage } from './pages/auth/AuthPages'
 import { ToastProvider } from './components/ui/Toast'
-import { DashboardPage } from './pages/DashboardPage'
 import { GroupsListPage, CreateGroupPage, JoinGroupPage, GroupSettingsPage } from './pages/groups/GroupPages'
 import { MatchesListPage } from './pages/matches/MatchesListPage'
 import { CreateMatchPage } from './pages/matches/CreateMatchPage'
@@ -34,7 +33,7 @@ export default function App() {
 
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/" element={<GroupsListPage />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/dashboard" element={<GroupsListPage />} />
                 <Route path="/groups" element={<GroupsListPage />} />
                 <Route path="/groups/new" element={<CreateGroupPage />} />
                 <Route path="/groups/join" element={<JoinGroupPage />} />
@@ -50,7 +49,7 @@ export default function App() {
                 <Route path="/mapa" element={<MapPage />} />
               </Route>
 
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </GroupProvider>
           </ToastProvider>

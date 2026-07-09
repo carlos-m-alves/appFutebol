@@ -3,7 +3,8 @@ import { sanitizeText, sanitizeOptional } from '../lib/sanitize'
 import type {
   Group, GroupMember, Match, MatchConfirmation, Team,
   MatchPlayer, MatchResult, PlayerRating, MatchAward, RecurringSchedule, Profile, GroupJoinRequest, VoterPenalty,
-  GroupFinanceConfig, PlayerFeeSettings, Payment, GroupExpense, FinanceSummary, MatchStats
+  GroupFinanceConfig, PlayerFeeSettings, Payment, GroupExpense, FinanceSummary, MatchStats,
+  MatchMarket, Bet, BetSelection
 } from '../types'
 
 export const groupService = {
@@ -33,6 +34,7 @@ export const groupService = {
       .from('groups')
       .select('*')
       .eq('access_code', accessCode.toUpperCase())
+      .is('deleted_at', null)
       .single()
     if (findError || !group) throw new Error('Código de acesso inválido')
 
@@ -100,6 +102,14 @@ export const groupService = {
     const { error } = await supabase
       .from('groups')
       .update(updates)
+      .eq('id', groupId)
+    if (error) throw error
+  },
+
+  async softDelete(groupId: string) {
+    const { error } = await supabase
+      .from('groups')
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', groupId)
     if (error) throw error
   }
@@ -927,6 +937,178 @@ export async function updateProfile(profileId: string, updates: { name?: string;
     .update(clean)
     .eq('id', profileId)
   if (error) throw error
+}
+
+export const bettingService = {
+  async getMarkets(matchId: string): Promise<(MatchMarket & { player?: Profile | null; team?: Team | null })[]> {
+    const { data } = await supabase
+      .from('match_markets')
+      .select('*, player:profiles(*), team:teams(*)')
+      .eq('match_id', matchId)
+      .order('market_type', { ascending: true })
+    return data ?? []
+  },
+
+  async getBets(matchId: string): Promise<(Bet & { selections: (BetSelection & { market?: MatchMarket | null })[]; profile?: Profile | null })[]> {
+    const { data: bets } = await supabase
+      .from('bets')
+      .select('*, profile:profiles(*)')
+      .eq('match_id', matchId)
+      .order('created_at', { ascending: false })
+
+    if (!bets?.length) return []
+
+    const betIds = bets.map(b => b.id)
+    const { data: selections } = await supabase
+      .from('bet_selections')
+      .select('*, market:match_markets(*)')
+      .in('bet_id', betIds)
+
+    return bets.map(b => ({
+      ...b,
+      selections: (selections ?? []).filter(s => s.bet_id === b.id),
+    }))
+  },
+
+  async getMyBets(matchId: string, profileId: string): Promise<(Bet & { selections: (BetSelection & { market?: MatchMarket | null })[] })[]> {
+    const { data: bets } = await supabase
+      .from('bets')
+      .select('*')
+      .eq('match_id', matchId)
+      .eq('profile_id', profileId)
+      .order('created_at', { ascending: false })
+
+    if (!bets?.length) return []
+
+    const betIds = bets.map(b => b.id)
+    const { data: selections } = await supabase
+      .from('bet_selections')
+      .select('*, market:match_markets(*)')
+      .in('bet_id', betIds)
+
+    return bets.map(b => ({
+      ...b,
+      selections: (selections ?? []).filter(s => s.bet_id === b.id),
+    }))
+  },
+
+  async getMyBalance(profileId: string): Promise<number> {
+    const { data } = await supabase
+      .from('profiles')
+      .select('betting_balance')
+      .eq('id', profileId)
+      .single()
+    return data?.betting_balance ?? 0
+  },
+
+  async placeBet(params: {
+    profileId: string
+    matchId: string
+    marketIds: string[]
+    amount: number
+    totalOdds: number
+  }): Promise<void> {
+    const potentialPayout = Math.round(params.amount * params.totalOdds * 100) / 100
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('betting_balance')
+      .eq('id', params.profileId)
+      .single()
+
+    if (!profile) throw new Error('Perfil não encontrado')
+    if (profile.betting_balance < params.amount) throw new Error('Saldo insuficiente')
+
+    const { data: newMarkets } = await supabase
+      .from('match_markets')
+      .select('*')
+      .in('id', params.marketIds)
+
+    if (!newMarkets?.length) throw new Error('Mercados não encontrados')
+
+    const { data: existingBets } = await supabase
+      .from('bets')
+      .select('id')
+      .eq('match_id', params.matchId)
+      .eq('profile_id', params.profileId)
+      .eq('status', 'PENDING')
+
+    if (existingBets && existingBets.length > 0) {
+      const existingBetIds = existingBets.map(b => b.id)
+
+      const { data: existingSelections } = await supabase
+        .from('bet_selections')
+        .select('*, market:match_markets(*)')
+        .in('bet_id', existingBetIds)
+
+      for (const newMarket of newMarkets) {
+        for (const sel of existingSelections ?? []) {
+          const em = sel.market
+          if (!em) continue
+
+          if (newMarket.market_type === 'WINNER' && em.market_type === 'WINNER') {
+            throw new Error('Você já tem uma aposta pendente em um time vencedor.')
+          }
+
+          if (newMarket.player_id && em.player_id && newMarket.player_id === em.player_id) {
+            const noShowConflicts = ['PLAYER_SCORES', 'PLAYER_ASSIST', 'PLAYER_NUTMEG']
+            if (
+              (newMarket.market_type === 'PLAYER_NO_SHOW' && noShowConflicts.includes(em.market_type)) ||
+              (em.market_type === 'PLAYER_NO_SHOW' && noShowConflicts.includes(newMarket.market_type))
+            ) {
+              throw new Error('Você já tem uma aposta pendente conflitante para este jogador.')
+            }
+          }
+        }
+      }
+    }
+
+    const betType = params.marketIds.length > 1 ? 'MULTIPLE' : 'SINGLE'
+
+    const { data: bet, error: betError } = await supabase
+      .from('bets')
+      .insert({
+        profile_id: params.profileId,
+        match_id: params.matchId,
+        amount: params.amount,
+        total_odds: params.totalOdds,
+        potential_payout: potentialPayout,
+        bet_type: betType,
+        status: 'PENDING',
+      })
+      .select()
+      .single()
+
+    if (betError) throw betError
+
+    const { error: selError } = await supabase
+      .from('bet_selections')
+      .insert(
+        params.marketIds.map(marketId => ({
+          bet_id: bet.id,
+          market_id: marketId,
+        }))
+      )
+
+    if (selError) throw selError
+
+    const { error: balanceError } = await supabase
+      .from('profiles')
+      .update({ betting_balance: (profile.betting_balance - params.amount) })
+      .eq('id', params.profileId)
+
+    if (balanceError) throw balanceError
+  },
+
+  async generateMarkets(matchId: string): Promise<void> {
+    const { error } = await supabase.rpc('generate_match_markets', { p_match_id: matchId })
+    if (error) throw error
+  },
+
+  async settleMarkets(matchId: string): Promise<void> {
+    const { error } = await supabase.rpc('settle_match_markets', { p_match_id: matchId })
+    if (error) throw error
+  },
 }
 
 const CATEGORY_LABELS: Record<string, string> = {

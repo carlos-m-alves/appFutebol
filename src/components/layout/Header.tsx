@@ -4,7 +4,7 @@ import { useGroup } from '../../contexts/GroupContext'
 import { LogOut, Users, Home, Trophy, BarChart3, Swords, MapPin } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { path: '/dashboard', label: 'Início', icon: <Home size={18} /> },
+  { path: '/', label: 'Início', icon: <Home size={18} /> },
   { path: '/matches', label: 'Partidas', icon: <Trophy size={18} /> },
   { path: '/rankings', label: 'Rankings', icon: <BarChart3 size={18} /> },
   { path: '/groups', label: 'Grupos', icon: <Users size={18} /> },
@@ -12,7 +12,7 @@ const NAV_ITEMS = [
 ]
 
 const HOME_NAV_ITEMS = NAV_ITEMS.filter(item =>
-  ['/dashboard', '/groups', '/mapa'].includes(item.path)
+  ['/', '/groups', '/mapa'].includes(item.path)
 )
 
 export function Header() {
@@ -33,7 +33,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to={currentGroup ? '/dashboard' : '/'} className="flex items-center gap-2 font-bold text-xl text-white hover:text-yellow-400 transition-colors">
+          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-white hover:text-yellow-400 transition-colors">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg shadow-yellow-500/20">
               <Swords size={18} className="text-slate-900" />
             </div>
@@ -42,8 +42,8 @@ export function Header() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {(activePath === '/dashboard' ? HOME_NAV_ITEMS : NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup)).map(item => {
-              const isActive = activePath === item.path || (item.path === '/dashboard' && activePath === '')
+            {(activePath === '/dashboard' || activePath === '/' ? HOME_NAV_ITEMS : NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup)).map(item => {
+              const isActive = activePath === item.path || (item.path === '/' && (activePath === '/' || activePath === ''))
               return (
                 <Link key={item.path} to={item.path}
                   className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
@@ -91,8 +91,8 @@ export function Header() {
 
         {/* Mobile nav */}
         <nav className="md:hidden flex items-center gap-1 pb-3 overflow-x-auto scrollbar-none">
-          {(activePath === '/dashboard' ? HOME_NAV_ITEMS : NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup)).map(item => {
-            const isActive = activePath === item.path || (item.path === '/dashboard' && activePath === '')
+          {(activePath === '/dashboard' || activePath === '/' ? HOME_NAV_ITEMS : NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup)).map(item => {
+            const isActive = activePath === item.path || (item.path === '/' && (activePath === '/' || activePath === ''))
             return (
               <Link key={item.path} to={item.path}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium whitespace-nowrap rounded-lg transition-all duration-200 ${

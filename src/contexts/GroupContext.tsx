@@ -64,6 +64,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       .from('groups')
       .select('*')
       .in('id', ids)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
     if (groupsError) { console.error('refreshGroups groups error:', groupsError); setLoading(false); return }
 
