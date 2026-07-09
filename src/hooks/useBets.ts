@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { bettingService } from '../services/api'
-import { queryKeys } from './queryKeys'
 
 export const betQueryKeys = {
   markets: (matchId: string) => ['bets', 'markets', matchId],

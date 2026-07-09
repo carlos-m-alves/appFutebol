@@ -12,13 +12,12 @@ interface BettingPanelProps {
   matchStatus: string
   isAdmin: boolean
   isBettingOpen: boolean
-  hasMarkets: boolean
   onGenerateMarkets?: () => void
 }
 
 type Tab = 'markets' | 'mybets' | 'allbets'
 
-export function BettingPanel({ matchId, matchStatus, isAdmin, isBettingOpen, hasMarkets, onGenerateMarkets }: BettingPanelProps) {
+export function BettingPanel({ matchId, matchStatus, isAdmin, isBettingOpen, onGenerateMarkets }: BettingPanelProps) {
   const { profile } = useAuth()
   const [tab, setTab] = useState<Tab>('markets')
   const { data: markets = [] } = useMatchMarkets(matchId)
@@ -121,34 +120,32 @@ export function BettingPanel({ matchId, matchStatus, isAdmin, isBettingOpen, has
           profileId={profile?.id}
           isBettingOpen={isBettingOpen}
           matchStatus={matchStatus}
-          hasMarkets={hasMarkets}
           isAdmin={isAdmin}
           onGenerateMarkets={onGenerateMarkets}
         />
       )}
 
       {tab === 'mybets' && (
-        <BetsList bets={myBets} title="Minhas Apostas" />
+        <BetsList bets={myBets} />
       )}
 
       {tab === 'allbets' && isAdmin && (
-        <BetsList bets={allBets} title="Todas as Apostas" />
+        <BetsList bets={allBets} />
       )}
 
       {tab === 'allbets' && !isAdmin && (
-        <BetsList bets={allBets.filter(b => b.profile_id === profile?.id)} title="Todas as Apostas" />
+        <BetsList bets={allBets.filter(b => b.profile_id === profile?.id)} />
       )}
     </div>
   )
 }
 
-function MarketsList({ markets, matchId, profileId, isBettingOpen, matchStatus, hasMarkets, isAdmin, onGenerateMarkets }: {
+function MarketsList({ markets, matchId, profileId, isBettingOpen, matchStatus, isAdmin, onGenerateMarkets }: {
   markets: (MatchMarket & { player?: { id: string; name: string; avatar_url: string | null } | null; team?: { id: string; name: string } | null })[]
   matchId: string
   profileId: string | undefined
   isBettingOpen: boolean
   matchStatus: string
-  hasMarkets: boolean
   isAdmin: boolean
   onGenerateMarkets?: () => void
 }) {
@@ -427,7 +424,7 @@ function MarketsList({ markets, matchId, profileId, isBettingOpen, matchStatus, 
   )
 }
 
-function BetsList({ bets, title }: { bets: (Bet & { selections: (BetSelection & { market?: MatchMarket | null })[]; profile?: { id: string; name: string; avatar_url: string | null } | null })[]; title: string }) {
+function BetsList({ bets }: { bets: (Bet & { selections: (BetSelection & { market?: MatchMarket | null })[]; profile?: { id: string; name: string; avatar_url: string | null } | null })[] }) {
   const statusColors: Record<string, string> = {
     PENDING: 'bg-yellow-100 text-yellow-800',
     WON: 'bg-green-100 text-green-800',

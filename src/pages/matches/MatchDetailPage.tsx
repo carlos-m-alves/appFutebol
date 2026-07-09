@@ -14,7 +14,7 @@ import { useToast } from '../../components/ui/Toast'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { FifaErrorScreen } from '../../components/ui/FifaErrorScreen'
 import { BettingPanel } from '../../components/bets/BettingPanel'
-import { useMatchMarkets, useGenerateMarkets } from '../../hooks/useBets'
+import { useGenerateMarkets } from '../../hooks/useBets'
 import { Calendar, MapPin, Users, Trophy, Star, Swords, Award, ThumbsDown, Goal, UserPlus, Check, Plus, Trash2, Shuffle, X } from 'lucide-react'
 
 export function MatchDetailPage() {
@@ -37,7 +37,6 @@ export function MatchDetailPage() {
   const { mutateAsync: removeAttendance } = useMatchRemoveAttendance()
   const { mutateAsync: calculateAwards } = useCalculateAwards()
   const { data: voterPenalties = [] } = useVoterPenalties(awards ? id : undefined)
-  const { data: markets = [] } = useMatchMarkets(id)
   const { mutateAsync: generateMarkets } = useGenerateMarkets()
   const { mutateAsync: clearPenalty } = useClearVoterPenalty()
   const [startError, setStartError] = useState<string | null>(null)
@@ -175,7 +174,6 @@ export function MatchDetailPage() {
           matchStatus={match.status}
           isAdmin={isAdmin}
           isBettingOpen={match.status === 'IN_PROGRESS'}
-          hasMarkets={markets.length > 0}
           onGenerateMarkets={isAdmin ? () => generateMarkets(match.id) : undefined}
         />
       )}
