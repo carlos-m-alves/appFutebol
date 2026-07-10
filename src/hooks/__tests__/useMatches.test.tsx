@@ -36,7 +36,7 @@ function createWrapper() {
 
 const mockMatch: Match = {
   id: 'm1', group_id: 'g1', match_date: '2024-06-01', location: 'Campo',
-  status: 'SCHEDULED', evaluation_open: false, evaluation_closed: false,
+  modality: 'SUICO', status: 'SCHEDULED', evaluation_open: false, evaluation_closed: false,
   created_by: 'p1', created_at: '2024-01-01', schedule_id: null,
 }
 

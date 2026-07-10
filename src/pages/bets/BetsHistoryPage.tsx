@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useAllMyBets, useBetSummary } from '../../hooks/useBets'
-import { MARKET_TYPE_LABELS } from '../../types'
 import { Coins, TrendingUp, TrendingDown, Target, ScrollText } from 'lucide-react'
 
 type Tab = 'all' | 'pending' | 'won' | 'lost'

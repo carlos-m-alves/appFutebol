@@ -197,7 +197,7 @@ describe('matchService', () => {
     it('returns matches ordered by date desc', async () => {
       const matches: Match[] = [
         { id: matchId, group_id: groupId, match_date: '2024-06-01', location: 'Campo',
-          status: 'SCHEDULED', evaluation_open: false, evaluation_closed: false,
+          modality: 'SUICO', status: 'SCHEDULED', evaluation_open: false, evaluation_closed: false,
           created_by: profileId, created_at: '2024-01-01', schedule_id: null },
       ]
       mockFrom.mockReturnValueOnce(mockChain({ data: matches }))
@@ -211,7 +211,7 @@ describe('matchService', () => {
     it('returns a single match', async () => {
       const match: Match = {
         id: matchId, group_id: groupId, match_date: '2024-06-01', location: 'Campo',
-        status: 'SCHEDULED', evaluation_open: false, evaluation_closed: false,
+        modality: 'SUICO', status: 'SCHEDULED', evaluation_open: false, evaluation_closed: false,
         created_by: profileId, created_at: '2024-01-01', schedule_id: null,
       }
       const chain = mockChain()
