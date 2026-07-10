@@ -170,6 +170,7 @@ function MarketsList({ markets, matchId, profileId, isBettingOpen, matchStatus, 
     PLAYER_SCORES: ['PLAYER_NO_SHOW'],
     PLAYER_ASSIST: ['PLAYER_NO_SHOW'],
     PLAYER_NUTMEG: ['PLAYER_NO_SHOW'],
+    EXACT_GOALS: ['EXACT_GOALS'],
   }
 
   const CONFLICT_LABELS: Record<string, string> = {
@@ -177,6 +178,7 @@ function MarketsList({ markets, matchId, profileId, isBettingOpen, matchStatus, 
     PLAYER_NO_SHOW_PLAYER_SCORES: 'Um jogador furão não pode fazer gol.',
     PLAYER_NO_SHOW_PLAYER_ASSIST: 'Um jogador furão não pode dar assistência.',
     PLAYER_NO_SHOW_PLAYER_NUTMEG: 'Um jogador furão não pode aplicar caneta.',
+    EXACT_GOALS_EXACT_GOALS: 'Você não pode selecionar dois totais de gols diferentes.',
   }
 
   function findConflict(newMarketId: string): string | null {
@@ -269,7 +271,7 @@ function MarketsList({ markets, matchId, profileId, isBettingOpen, matchStatus, 
     setPlacing(false)
   }
 
-  const marketTypeOrder = ['WINNER', 'TOP_SCORER', 'TOP_ASSISTER', 'BEST_PLAYER', 'PLAYER_SCORES', 'PLAYER_ASSIST', 'PLAYER_NUTMEG', 'PLAYER_NO_SHOW']
+  const marketTypeOrder = ['WINNER', 'CLEAN_SHEET', 'EXACT_GOALS', 'TOP_SCORER', 'TOP_ASSISTER', 'MOST_NUTMEGS', 'BEST_PLAYER', 'PLAYER_SCORES', 'PLAYER_ASSIST', 'PLAYER_NUTMEG', 'PLAYER_NO_SHOW']
   const sortedGrouped = [...grouped].sort((a, b) => marketTypeOrder.indexOf(a[0]) - marketTypeOrder.indexOf(b[0]))
 
   const openMarkets = markets.filter(m => m.status === 'OPEN')

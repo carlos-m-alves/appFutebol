@@ -6,6 +6,7 @@ import { groupService, matchService, groupJoinRequestService } from '../../servi
 import { uploadGroupImage } from '../../services/storage'
 import { supabase } from '../../lib/supabase'
 import type { Group, GroupMember, Match, Team, MatchResult, MatchPlayer, GroupJoinRequest } from '../../types'
+import { MODALITY_LABELS } from '../../types'
 import { Plus, LogIn, Users, ArrowRight, Trash2, Crown, Shield, Calendar, MapPin, Trophy, ChevronRight, Check, X, Clock, UserPlus, Search, Send, DollarSign, QrCode, Edit3, Camera } from 'lucide-react'
 
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
@@ -21,6 +22,8 @@ export function GroupsListPage() {
   const [loading, setLoading] = useState(true)
   const [sendingRequest, setSendingRequest] = useState<string | null>(null)
   const [pendingModalGroup, setPendingModalGroup] = useState<typeof allGroups[number] | null>(null)
+  const [nextMatch, setNextMatch] = useState<(Match & { group: { name: string } }) | null>(null)
+  const [pendingFinanceGroups, setPendingFinanceGroups] = useState<{ id: string; name: string }[]>([])
 
   useEffect(() => {
     if (profile) loadGroups()
@@ -63,6 +66,39 @@ export function GroupsListPage() {
     }))
 
     setAllGroups(enriched)
+
+    // Load next upcoming match for user's groups
+    if (memberGroupIds.size > 0) {
+      const { data: upcoming } = await supabase
+        .from('matches')
+        .select('*, group:groups!inner(name)')
+        .in('group_id', [...memberGroupIds])
+        .in('status', ['SCHEDULED', 'CONFIRMED'])
+        .gte('match_date', new Date().toISOString())
+        .order('match_date', { ascending: true })
+        .limit(1)
+
+      if (upcoming && upcoming.length > 0) {
+        setNextMatch(upcoming[0] as any)
+      }
+    }
+
+    // Load groups with finance config
+    if (memberGroupIds.size > 0) {
+      const { data: finGroups } = await supabase
+        .from('group_finance_config')
+        .select('group_id, groups!inner(name)')
+        .in('group_id', [...memberGroupIds])
+        .or('default_monthly_fee.gt.0,default_match_fee.gt.0')
+
+      if (finGroups) {
+        setPendingFinanceGroups(finGroups.map((fg: any) => ({
+          id: fg.group_id,
+          name: fg.groups?.name || ''
+        })))
+      }
+    }
+
     setLoading(false)
   }
 
@@ -116,6 +152,68 @@ export function GroupsListPage() {
           </Link>
         </div>
       </div>
+
+      {/* Next Match Card */}
+      {nextMatch && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-600/5 to-transparent border border-emerald-500/20 p-5 mb-4">
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl" />
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+              <Calendar size={22} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold text-emerald-400/80 uppercase tracking-[0.15em] mb-0.5">Próxima Partida</p>
+              <h3 className="text-white font-bold text-sm truncate">
+                {new Date(nextMatch.match_date).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                {' às '}
+                {new Date(nextMatch.match_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </h3>
+              <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-400">
+                {nextMatch.location && (
+                  <span className="flex items-center gap-1"><MapPin size={11} /> {nextMatch.location}</span>
+                )}
+                <span className="text-emerald-400/80 font-semibold">{nextMatch.group?.name}</span>
+                {nextMatch.modality && (
+                  <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] text-gray-500 uppercase tracking-wider">
+                    {MODALITY_LABELS[nextMatch.modality as keyof typeof MODALITY_LABELS] || nextMatch.modality}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button onClick={() => navigate(`/matches/${nextMatch.id}`)}
+              className="shrink-0 px-3 py-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-xl text-[11px] font-bold hover:bg-emerald-500/30 transition-all">
+              Detalhes
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Pending Finance Cards */}
+      {pendingFinanceGroups.length > 0 && (
+        <div className="space-y-2 mb-4">
+          {pendingFinanceGroups.map(fg => (
+            <div key={fg.id}
+              className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-600/5 to-transparent border border-amber-500/20 p-4">
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl" />
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
+              <div className="relative flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
+                  <DollarSign size={18} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold text-amber-400/80 uppercase tracking-[0.15em] mb-0.5">Pendência Financeira</p>
+                  <p className="text-white font-medium text-sm">Você possui pendências no grupo <span className="font-bold">{fg.name}</span></p>
+                </div>
+                <button onClick={() => navigate(`/groups/${fg.id}/financas`)}
+                  className="shrink-0 px-3 py-2 bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-xl text-[11px] font-bold hover:bg-amber-500/30 transition-all">
+                  Finanças
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative mb-6">

@@ -58,12 +58,21 @@ export interface RecurringSchedule {
   active: boolean
 }
 
+export type MatchModality = 'SUICO' | 'CAMPO' | 'FUTSAL'
+
+export const MODALITY_LABELS: Record<MatchModality, string> = {
+  SUICO: 'Suíço',
+  CAMPO: 'Campo',
+  FUTSAL: 'Futsal',
+}
+
 export interface Match {
   id: string
   group_id: string
   schedule_id: string | null
   match_date: string
   location: string
+  modality: MatchModality
   status: 'SCHEDULED' | 'CONFIRMED' | 'IN_PROGRESS' | 'FINISHED' | 'CANCELLED'
   evaluation_open: boolean
   evaluation_closed: boolean
@@ -253,7 +262,7 @@ export interface MatchStats {
   avg_rating: number | null
 }
 
-export type MarketType = 'WINNER' | 'TOP_SCORER' | 'TOP_ASSISTER' | 'BEST_PLAYER' | 'PLAYER_SCORES' | 'PLAYER_ASSIST' | 'PLAYER_NUTMEG' | 'PLAYER_NO_SHOW'
+export type MarketType = 'WINNER' | 'TOP_SCORER' | 'TOP_ASSISTER' | 'BEST_PLAYER' | 'PLAYER_SCORES' | 'PLAYER_ASSIST' | 'PLAYER_NUTMEG' | 'PLAYER_NO_SHOW' | 'EXACT_GOALS' | 'MOST_NUTMEGS' | 'CLEAN_SHEET'
 
 export type MarketStatus = 'OPEN' | 'SETTLED'
 
@@ -270,6 +279,9 @@ export const MARKET_TYPE_LABELS: Record<MarketType, string> = {
   PLAYER_ASSIST: 'Dá Assistência',
   PLAYER_NUTMEG: 'Aplica Caneta',
   PLAYER_NO_SHOW: 'Furão',
+  EXACT_GOALS: 'Total de Gols',
+  MOST_NUTMEGS: 'Mais Canetas',
+  CLEAN_SHEET: 'Não Sofrer Gols',
 }
 
 export interface MatchMarket {

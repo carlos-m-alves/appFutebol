@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
 import { matchService } from '../../services/api'
 import { FifaErrorScreen } from '../../components/ui/FifaErrorScreen'
+import { MODALITY_LABELS } from '../../types'
+import type { MatchModality } from '../../types'
 
 export function CreateMatchPage() {
   const { profile } = useAuth()
@@ -13,6 +15,7 @@ export function CreateMatchPage() {
   const [matchDate, setMatchDate] = useState('')
   const [matchTime, setMatchTime] = useState('09:00')
   const [location, setLocation] = useState('')
+  const [modality, setModality] = useState<MatchModality>('SUICO')
   const [isRecurring, setIsRecurring] = useState(false)
   const [frequency, setFrequency] = useState<'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'CUSTOM'>('WEEKLY')
   const [dayOfWeek, setDayOfWeek] = useState('1')
@@ -31,6 +34,7 @@ export function CreateMatchPage() {
         group_id: currentGroup.id,
         match_date: new Date(`${matchDate}T${matchTime}:00-03:00`).toISOString(),
         location,
+        modality,
         is_recurring: isRecurring,
         frequency: isRecurring ? frequency : undefined,
         day_of_week: isRecurring && frequency === 'WEEKLY' ? parseInt(dayOfWeek) : undefined,
@@ -81,6 +85,16 @@ export function CreateMatchPage() {
           <input type="text" value={location} onChange={e => setLocation(e.target.value)} required
             placeholder="Ex: Campo da Vila"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Modalidade</label>
+          <select value={modality} onChange={e => setModality(e.target.value as MatchModality)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-gray-900">
+            {Object.entries(MODALITY_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
         </div>
 
         <div className="flex items-center gap-3">

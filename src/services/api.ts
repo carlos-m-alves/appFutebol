@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { sanitizeText, sanitizeOptional } from '../lib/sanitize'
 import type {
-  Group, GroupMember, Match, MatchConfirmation, Team,
+  Group, GroupMember, Match, MatchModality, MatchConfirmation, Team,
   MatchPlayer, MatchResult, PlayerRating, MatchAward, RecurringSchedule, Profile, GroupJoinRequest, VoterPenalty,
   GroupFinanceConfig, PlayerFeeSettings, Payment, GroupExpense, FinanceSummary, MatchStats,
   MatchMarket, Bet, BetSelection
@@ -126,6 +126,7 @@ export const matchService = {
 
   async create(data: {
     group_id: string, match_date: string, location: string,
+    modality?: MatchModality,
     schedule_id?: string, is_recurring?: boolean,
     frequency?: string, day_of_week?: number, day_of_month?: number, hour?: string
   }): Promise<Match | null> {
@@ -166,6 +167,7 @@ export const matchService = {
         group_id: data.group_id,
         match_date: data.match_date,
         location: cleanLocation,
+        modality: data.modality || 'SUICO',
         schedule_id: scheduleId,
         status: 'SCHEDULED',
         created_by: profile.id
@@ -1098,6 +1100,33 @@ export const bettingService = {
       .eq('id', params.profileId)
 
     if (balanceError) throw balanceError
+  },
+
+  async getAllMyBets(profileId: string): Promise<any[]> {
+    const { data: bets } = await supabase
+      .from('bets')
+      .select('*')
+      .eq('profile_id', profileId)
+      .order('created_at', { ascending: false })
+
+    if (!bets?.length) return []
+
+    const betIds = bets.map(b => b.id)
+    const matchIds = [...new Set(bets.map(b => b.match_id))]
+
+    const [selectionsResult, matchesResult] = await Promise.all([
+      supabase.from('bet_selections').select('*, market:match_markets(*)').in('bet_id', betIds),
+      supabase.from('matches').select('*, group:groups(name)').in('id', matchIds),
+    ])
+
+    const selections = selectionsResult.data ?? []
+    const matches = matchesResult.data ?? []
+
+    return bets.map(b => ({
+      ...b,
+      match: matches.find(m => m.id === b.match_id) || null,
+      selections: selections.filter(s => s.bet_id === b.id),
+    }))
   },
 
   async generateMarkets(matchId: string): Promise<void> {

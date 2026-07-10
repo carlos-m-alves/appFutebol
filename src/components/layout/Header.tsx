@@ -1,18 +1,19 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
-import { LogOut, Users, Home, Trophy, BarChart3, Swords, MapPin } from 'lucide-react'
+import { LogOut, Users, Home, Trophy, BarChart3, Swords, MapPin, Coins } from 'lucide-react'
 
 const NAV_ITEMS = [
   { path: '/', label: 'Início', icon: <Home size={18} /> },
   { path: '/matches', label: 'Partidas', icon: <Trophy size={18} /> },
   { path: '/rankings', label: 'Rankings', icon: <BarChart3 size={18} /> },
+  { path: '/bets', label: 'Palpites', icon: <Coins size={18} /> },
   { path: '/groups', label: 'Grupos', icon: <Users size={18} /> },
   { path: '/mapa', label: 'Quadras', icon: <MapPin size={18} /> },
 ]
 
 const HOME_NAV_ITEMS = NAV_ITEMS.filter(item =>
-  ['/', '/groups', '/mapa'].includes(item.path)
+  ['/', '/groups', '/mapa', '/bets'].includes(item.path)
 )
 
 export function Header() {
@@ -42,7 +43,7 @@ export function Header() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {(activePath === '/dashboard' || activePath === '/' ? HOME_NAV_ITEMS : NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup)).map(item => {
+            {(activePath === '/dashboard' || activePath === '/' ? HOME_NAV_ITEMS : NAV_ITEMS.filter(item => (item.path !== '/matches' || currentGroup) && (item.path !== '/rankings' || activePath !== '/profile'))).map(item => {
               const isActive = activePath === item.path || (item.path === '/' && (activePath === '/' || activePath === ''))
               return (
                 <Link key={item.path} to={item.path}
@@ -91,7 +92,7 @@ export function Header() {
 
         {/* Mobile nav */}
         <nav className="md:hidden flex items-center gap-1 pb-3 overflow-x-auto scrollbar-none">
-          {(activePath === '/dashboard' || activePath === '/' ? HOME_NAV_ITEMS : NAV_ITEMS.filter(item => item.path !== '/matches' || currentGroup)).map(item => {
+          {(activePath === '/dashboard' || activePath === '/' ? HOME_NAV_ITEMS : NAV_ITEMS.filter(item => (item.path !== '/matches' || currentGroup) && (item.path !== '/rankings' || activePath !== '/profile'))).map(item => {
             const isActive = activePath === item.path || (item.path === '/' && (activePath === '/' || activePath === ''))
             return (
               <Link key={item.path} to={item.path}
@@ -105,6 +106,25 @@ export function Header() {
               </Link>
             )
           })}
+          {profile && (
+            <Link to="/profile"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium whitespace-nowrap rounded-lg transition-all duration-200 ${
+                activePath === '/profile'
+                  ? 'text-yellow-400 bg-yellow-400/10'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}>
+              <div className="w-5 h-5 rounded-full overflow-hidden shrink-0">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center text-white font-bold text-[8px]">
+                    {profile.name?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                )}
+              </div>
+              <span>{profile.name}</span>
+            </Link>
+          )}
         </nav>
       </div>
     </header>

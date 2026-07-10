@@ -6,6 +6,7 @@ export const betQueryKeys = {
   bets: (matchId: string) => ['bets', 'list', matchId],
   myBets: (matchId: string, profileId: string) => ['bets', 'my', matchId, profileId],
   balance: (profileId: string) => ['bets', 'balance', profileId],
+  allMyBets: (profileId: string) => ['bets', 'all', profileId],
 }
 
 export function useMatchMarkets(matchId: string | undefined) {
@@ -82,4 +83,51 @@ export function useSettleMarkets() {
       queryClient.invalidateQueries({ queryKey: betQueryKeys.bets(matchId) })
     },
   })
+}
+
+export function useAllMyBets(profileId: string | undefined) {
+  return useQuery({
+    queryKey: betQueryKeys.allMyBets(profileId!),
+    queryFn: () => bettingService.getAllMyBets(profileId!),
+    staleTime: 30 * 1000,
+    enabled: !!profileId,
+  })
+}
+
+export function useBetSummary(profileId: string | undefined) {
+  const { data: allBets } = useAllMyBets(profileId)
+  const { data: balance } = useMyBalance(profileId)
+
+  if (!allBets || allBets.length === 0) {
+    return {
+      balance: balance ?? 0,
+      totalInvested: 0,
+      totalReturned: 0,
+      netProfit: 0,
+      totalBets: 0,
+      wonBets: 0,
+      lostBets: 0,
+      pendingBets: 0,
+      winRate: 0,
+    }
+  }
+
+  const totalInvested = allBets.reduce((s: number, b: any) => s + b.amount, 0)
+  const wonBets = allBets.filter((b: any) => b.status === 'WON')
+  const lostBets = allBets.filter((b: any) => b.status === 'LOST')
+  const pendingBets = allBets.filter((b: any) => b.status === 'PENDING')
+  const totalReturned = wonBets.reduce((s: number, b: any) => s + b.potential_payout, 0)
+  const settledCount = wonBets.length + lostBets.length
+
+  return {
+    balance: balance ?? 0,
+    totalInvested,
+    totalReturned,
+    netProfit: totalReturned - totalInvested,
+    totalBets: allBets.length,
+    wonBets: wonBets.length,
+    lostBets: lostBets.length,
+    pendingBets: pendingBets.length,
+    winRate: settledCount > 0 ? Math.round((wonBets.length / settledCount) * 100) : 0,
+  }
 }

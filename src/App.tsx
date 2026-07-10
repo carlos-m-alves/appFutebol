@@ -15,6 +15,7 @@ import { RankingsPage } from './pages/rankings/RankingsPage'
 import { ProfilePage } from './pages/profile/ProfilePage'
 import { MapPage } from './pages/map/MapPage'
 import { FinancePage } from './pages/finances/FinancePage'
+import { BetsHistoryPage } from './pages/bets/BetsHistoryPage'
 
 const queryClient = new QueryClient()
 
@@ -33,7 +34,6 @@ export default function App() {
 
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/" element={<GroupsListPage />} />
-                <Route path="/dashboard" element={<GroupsListPage />} />
                 <Route path="/groups" element={<GroupsListPage />} />
                 <Route path="/groups/new" element={<CreateGroupPage />} />
                 <Route path="/groups/join" element={<JoinGroupPage />} />
@@ -45,6 +45,7 @@ export default function App() {
                 <Route path="/matches/:id" element={<MatchDetailPage />} />
                 <Route path="/matches/:id/vote" element={<VotePage />} />
                 <Route path="/rankings" element={<RankingsPage />} />
+                <Route path="/bets" element={<BetsHistoryPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/mapa" element={<MapPage />} />
               </Route>
