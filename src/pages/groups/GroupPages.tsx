@@ -838,6 +838,10 @@ function GroupSettingsContent() {
 
       {/* Action Buttons */}
       <div className="flex gap-3">
+        <Link to={`/groups/${currentGroup.id}/campeonatos`}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-white/[0.06] text-white rounded-xl font-black text-sm hover:bg-white/[0.10] transition-all duration-200 border border-white/[0.08]">
+          <Trophy size={18} /> Campeonatos
+        </Link>
         <Link to={`/groups/${currentGroup.id}/financas`}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-white/[0.06] text-white rounded-xl font-black text-sm hover:bg-white/[0.10] transition-all duration-200 border border-white/[0.08]">
           <DollarSign size={18} /> Finanças

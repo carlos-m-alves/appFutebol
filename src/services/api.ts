@@ -4,7 +4,8 @@ import type {
   Group, GroupMember, Match, MatchModality, MatchConfirmation, Team,
   MatchPlayer, MatchResult, PlayerRating, MatchAward, RecurringSchedule, Profile, GroupJoinRequest, VoterPenalty,
   GroupFinanceConfig, PlayerFeeSettings, Payment, GroupExpense, FinanceSummary, MatchStats,
-  MatchMarket, Bet, BetSelection
+  MatchMarket, Bet, BetSelection,
+  Championship, ChampionshipTeam, ChampionshipTeamPlayer, ChampionshipRound, ChampionshipStanding, PlayerPosition
 } from '../types'
 
 export const groupService = {
@@ -1138,6 +1139,490 @@ export const bettingService = {
     const { error } = await supabase.rpc('settle_match_markets', { p_match_id: matchId })
     if (error) throw error
   },
+}
+
+export const championshipService = {
+  async list(groupId: string): Promise<Championship[]> {
+    const { data } = await supabase
+      .from('championships')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: false })
+    return data ?? []
+  },
+
+  async get(id: string): Promise<Championship & { teams: (ChampionshipTeam & { players: (ChampionshipTeamPlayer & { profile: Profile | null })[] })[] } | null> {
+    const { data } = await supabase
+      .from('championships')
+      .select('*, teams:championship_teams(*, players:championship_team_players(*, profile:profiles(*)))')
+      .eq('id', id)
+      .single()
+    return data
+  },
+
+  async create(params: {
+    group_id: string
+    name: string
+    team_count: number
+    teams: {
+      name: string
+      players: { profile_id?: string; guest_name?: string; position?: PlayerPosition }[]
+    }[]
+  }): Promise<Championship | null> {
+    const { data: user } = await supabase.auth.getUser()
+    if (!user?.user?.id) throw new Error('Usuário não autenticado')
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', user.user.id)
+      .single()
+    if (!profile) throw new Error('Perfil não encontrado')
+
+    const { data: championship, error } = await supabase
+      .from('championships')
+      .insert({
+        group_id: params.group_id,
+        name: sanitizeText(params.name, 100),
+        team_count: params.team_count,
+        created_by: profile.id,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    if (!championship) return null
+
+    const teams = params.teams.map(t => ({
+      championship_id: championship.id,
+      name: sanitizeText(t.name, 50),
+    }))
+
+    const { data: createdTeams, error: teamsError } = await supabase
+      .from('championship_teams')
+      .insert(teams)
+      .select()
+
+    if (teamsError) throw teamsError
+
+    const players = createdTeams!.flatMap((ct, i) =>
+      params.teams[i].players.map(p => ({
+        championship_team_id: ct.id,
+        profile_id: p.profile_id || null,
+        guest_name: p.guest_name ? sanitizeText(p.guest_name, 100) : null,
+        position: p.position || null,
+      }))
+    )
+
+    if (players.length > 0) {
+      const { error: playersError } = await supabase
+        .from('championship_team_players')
+        .insert(players)
+      if (playersError) throw playersError
+    }
+
+    return championship
+  },
+
+  async start(id: string, roundDates: { round_number: number; match_date: string; location: string }[]): Promise<void> {
+    const { data: championship, error: getError } = await supabase
+      .from('championships')
+      .select('*, rounds:championship_rounds(*), teams:championship_teams(*, players:championship_team_players(*))')
+      .eq('id', id)
+      .single()
+
+    if (getError) throw getError
+    if (!championship) throw new Error('Campeonato não encontrado')
+    if (championship.status !== 'DRAFT') throw new Error('Campeonato já foi iniciado')
+
+    const { data: user } = await supabase.auth.getUser()
+    if (!user?.user?.id) throw new Error('Usuário não autenticado')
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', user.user.id)
+      .single()
+    if (!profile) throw new Error('Perfil não encontrado')
+
+    const matchInserts = roundDates.map(rd => {
+      const round = championship.rounds.find(r => r.round_number === rd.round_number)
+      if (!round) throw new Error(`Rodada ${rd.round_number} não encontrada`)
+      const matchDate = rd.match_date || new Date().toISOString()
+      const location = rd.location?.trim() || 'A definir'
+      return {
+        group_id: championship.group_id,
+        match_date: matchDate,
+        location: sanitizeText(location, 300),
+        modality: 'SUICO' as MatchModality,
+        status: 'SCHEDULED',
+        created_by: profile.id,
+      }
+    })
+
+    const { data: createdMatches, error: matchesError } = await supabase
+      .from('matches')
+      .insert(matchInserts)
+      .select()
+
+    if (matchesError) throw matchesError
+
+    const roundsSorted = [...championship.rounds].sort((a, b) => a.round_number - b.round_number)
+
+    for (let i = 0; i < createdMatches!.length; i++) {
+      const m = createdMatches![i]
+      const rd = roundDates[i]
+      const round = roundsSorted[i]
+
+      const { error: err1 } = await supabase
+        .from('championship_rounds')
+        .update({ match_id: m.id })
+        .eq('id', round.id)
+      if (err1) throw err1
+
+      const { error: err2 } = await supabase
+        .from('matches')
+        .update({ championship_id: id })
+        .eq('id', m.id)
+      if (err2) throw err2
+    }
+
+    for (const round of roundsSorted) {
+      if (!round.match_id) continue
+
+      const homeTeam = championship.teams.find(t => t.id === round.home_team_id)
+      const awayTeam = championship.teams.find(t => t.id === round.away_team_id)
+
+      const { data: matchTeams } = await supabase
+        .from('teams')
+        .insert([
+          { match_id: round.match_id, name: homeTeam?.name || 'Time A' },
+          { match_id: round.match_id, name: awayTeam?.name || 'Time B' },
+        ])
+        .select()
+
+      if (matchTeams) {
+        const homeMatchTeam = matchTeams[0]
+        const awayMatchTeam = matchTeams[1]
+
+        const homePlayers = (homeTeam?.players || []).filter(p => p.profile_id)
+        const awayPlayers = (awayTeam?.players || []).filter(p => p.profile_id)
+
+        const allMatchPlayers = [
+          ...homePlayers.map(p => ({
+            match_id: round.match_id!,
+            profile_id: p.profile_id,
+            team_id: homeMatchTeam.id,
+            goals: 0, assists: 0, own_goals: 0, nutmeg_given: 0, nutmeg_done: 0, no_show: false,
+          })),
+          ...awayPlayers.map(p => ({
+            match_id: round.match_id!,
+            profile_id: p.profile_id,
+            team_id: awayMatchTeam.id,
+            goals: 0, assists: 0, own_goals: 0, nutmeg_given: 0, nutmeg_done: 0, no_show: false,
+          })),
+        ]
+
+        if (allMatchPlayers.length > 0) {
+          const { error: mpError } = await supabase
+            .from('match_players')
+            .insert(allMatchPlayers)
+          if (mpError) throw mpError
+        }
+      }
+    }
+
+    const { error: updateError } = await supabase
+      .from('championships')
+      .update({ status: 'ACTIVE' })
+      .eq('id', id)
+
+    if (updateError) throw updateError
+  },
+
+  async generateRounds(id: string, type: 'first' | 'all'): Promise<ChampionshipRound[]> {
+    const { data: championship, error: getError } = await supabase
+      .from('championships')
+      .select('*, teams:championship_teams(*)')
+      .eq('id', id)
+      .single()
+
+    if (getError) throw getError
+    if (!championship) throw new Error('Campeonato não encontrado')
+    if (championship.status !== 'DRAFT') throw new Error('Campeonato já foi iniciado')
+
+    const { error: deleteError } = await supabase
+      .from('championship_rounds')
+      .delete()
+      .eq('championship_id', id)
+    if (deleteError) throw deleteError
+
+    const teamIds = championship.teams.map(t => t.id)
+    const rawRounds = generateRoundRobin(teamIds, type)
+    const rounds = rawRounds.map(r => ({ ...r, championship_id: championship.id }))
+
+    if (rounds.length > 0) {
+      const { error: roundsError } = await supabase
+        .from('championship_rounds')
+        .insert(rounds)
+      if (roundsError) throw roundsError
+    }
+
+    const { data: createdRounds } = await supabase
+      .from('championship_rounds')
+      .select('*, home_team:championship_teams(*), away_team:championship_teams(*)')
+      .eq('championship_id', id)
+      .order('round_number', { ascending: true })
+
+    return createdRounds ?? []
+  },
+
+  async startRoundMatch(roundId: string): Promise<string> {
+    const { data: round, error: roundError } = await supabase
+      .from('championship_rounds')
+      .select('*')
+      .eq('id', roundId)
+      .single()
+    if (roundError) throw roundError
+    if (!round) throw new Error('Rodada não encontrada')
+    if (round.match_id) return round.match_id
+
+    const { data: championship, error: champError } = await supabase
+      .from('championships')
+      .select('*')
+      .eq('id', round.championship_id)
+      .single()
+    if (champError) throw champError
+    if (!championship) throw new Error('Campeonato não encontrado')
+
+    const { data: homeTeam, error: htError } = await supabase
+      .from('championship_teams')
+      .select('*, players:championship_team_players(*)')
+      .eq('id', round.home_team_id)
+      .single()
+    if (htError) throw htError
+
+    const { data: awayTeam, error: atError } = await supabase
+      .from('championship_teams')
+      .select('*, players:championship_team_players(*)')
+      .eq('id', round.away_team_id)
+      .single()
+    if (atError) throw atError
+
+    const { data: user } = await supabase.auth.getUser()
+    if (!user?.user?.id) throw new Error('Usuário não autenticado')
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', user.user.id)
+      .single()
+    if (!profile) throw new Error('Perfil não encontrado')
+
+    const { data: match, error: matchError } = await supabase
+      .from('matches')
+      .insert({
+        group_id: championship.group_id,
+        match_date: new Date().toISOString(),
+        location: 'A definir',
+        modality: 'SUICO',
+        status: 'SCHEDULED',
+        created_by: profile.id,
+      })
+      .select()
+      .single()
+    if (matchError) throw matchError
+    if (!match) throw new Error('Erro ao criar partida')
+
+    const { error: updateRoundError } = await supabase
+      .from('championship_rounds')
+      .update({ match_id: match.id })
+      .eq('id', roundId)
+    if (updateRoundError) throw updateRoundError
+
+    const { error: updateMatchError } = await supabase
+      .from('matches')
+      .update({ championship_id: round.championship_id })
+      .eq('id', match.id)
+    if (updateMatchError) throw updateMatchError
+
+    const { data: matchTeams, error: mtError } = await supabase
+      .from('teams')
+      .insert([
+        { match_id: match.id, name: homeTeam?.name || 'Time A' },
+        { match_id: match.id, name: awayTeam?.name || 'Time B' },
+      ])
+      .select()
+    if (mtError) throw mtError
+
+    if (matchTeams) {
+      const homeMatchTeam = matchTeams[0]
+      const awayMatchTeam = matchTeams[1]
+
+      const homePlayers = (homeTeam?.players || []).filter((p: any) => p.profile_id)
+      const awayPlayers = (awayTeam?.players || []).filter((p: any) => p.profile_id)
+
+      const allMatchPlayers = [
+        ...homePlayers.map((p: any) => ({
+          match_id: match.id,
+          profile_id: p.profile_id,
+          team_id: homeMatchTeam.id,
+          goals: 0, assists: 0, own_goals: 0, nutmeg_given: 0, nutmeg_done: 0, no_show: false,
+        })),
+        ...awayPlayers.map((p: any) => ({
+          match_id: match.id,
+          profile_id: p.profile_id,
+          team_id: awayMatchTeam.id,
+          goals: 0, assists: 0, own_goals: 0, nutmeg_given: 0, nutmeg_done: 0, no_show: false,
+        })),
+      ]
+
+      if (allMatchPlayers.length > 0) {
+        const { error: mpError } = await supabase
+          .from('match_players')
+          .insert(allMatchPlayers)
+        if (mpError) throw mpError
+      }
+    }
+
+    return match.id
+  },
+
+  async finish(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('championships')
+      .update({ status: 'FINISHED', finished_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) throw error
+  },
+
+  async getRounds(id: string): Promise<any[]> {
+    const { data: rounds } = await supabase
+      .from('championship_rounds')
+      .select('*')
+      .eq('championship_id', id)
+      .order('round_number', { ascending: true })
+
+    if (!rounds?.length) return []
+
+    const matchIds = rounds.filter(r => r.match_id).map(r => r.match_id)
+    let matches: any[] = []
+    let matchResults: any[] = []
+    let matchTeams: any[] = []
+
+    if (matchIds.length > 0) {
+      const [mRes, mrRes, mtRes] = await Promise.all([
+        supabase.from('matches').select('*').in('id', matchIds),
+        supabase.from('match_results').select('*').in('match_id', matchIds),
+        supabase.from('teams').select('*').in('match_id', matchIds),
+      ])
+      matches = mRes.data ?? []
+      matchResults = mrRes.data ?? []
+      matchTeams = mtRes.data ?? []
+    }
+
+    const teamIds = new Set<string>()
+    rounds.forEach(r => { teamIds.add(r.home_team_id); teamIds.add(r.away_team_id) })
+    let championshipTeams: any[] = []
+    if (teamIds.size > 0) {
+      const { data: t } = await supabase
+        .from('championship_teams')
+        .select('*')
+        .in('id', [...teamIds])
+      championshipTeams = t ?? []
+    }
+
+    return rounds.map(r => {
+      const match = matches.find(m => m.id === r.match_id) || null
+      const matchTeamsForMatch = matchTeams.filter(t => t.match_id === r.match_id)
+      const results = matchResults.filter(rr => rr.match_id === r.match_id)
+
+      const homeTeamFromChamp = championshipTeams.find(t => t.id === r.home_team_id)
+      const awayTeamFromChamp = championshipTeams.find(t => t.id === r.away_team_id)
+
+      const homeMatchTeam = matchTeamsForMatch.find(t => t.name === homeTeamFromChamp?.name)
+      const awayMatchTeam = matchTeamsForMatch.find(t => t.name === awayTeamFromChamp?.name)
+
+      let homeScore: number | null = null
+      let awayScore: number | null = null
+
+      if (homeMatchTeam && awayMatchTeam) {
+        homeScore = results.find(rr => rr.team_id === homeMatchTeam.id)?.score ?? null
+        awayScore = results.find(rr => rr.team_id === awayMatchTeam.id)?.score ?? null
+      }
+
+      if ((homeScore === null || awayScore === null) && results.length >= 2 && matchTeamsForMatch.length >= 2) {
+        const sorted = [...matchTeamsForMatch].sort((a, b) => a.name.localeCompare(b.name))
+        const sortedResults = sorted.map(t => results.find(rr => rr.team_id === t.id)?.score ?? null)
+        if (homeScore === null) homeScore = sortedResults[0]
+        if (awayScore === null) awayScore = sortedResults[1]
+      }
+
+      return {
+        ...r,
+        match: match ? { ...match, home_score: homeScore, away_score: awayScore } : null,
+        home_team: homeTeamFromChamp || null,
+        away_team: awayTeamFromChamp || null,
+      }
+    })
+  },
+
+  async getStandings(id: string): Promise<ChampionshipStanding[]> {
+    const { data } = await supabase.rpc('get_championship_standings', { p_championship_id: id })
+    return data ?? []
+  },
+}
+
+function generateRoundRobin(
+  teamIds: string[],
+  type: 'first' | 'all' = 'all'
+): { championship_id: string; round_number: number; home_team_id: string; away_team_id: string }[] {
+  const n = teamIds.length
+  if (n < 2) return []
+
+  const actualN = n % 2 === 0 ? n : n + 1
+  const arr: (string | null)[] = [...teamIds]
+  if (n % 2 !== 0) arr.push(null)
+
+  const rounds: { home: string; away: string }[][] = []
+
+  for (let r = 0; r < actualN - 1; r++) {
+    const round: { home: string; away: string }[] = []
+
+    for (let j = 0; j < actualN / 2; j++) {
+      const home = arr[j]
+      const away = arr[actualN - 1 - j]
+      if (home !== null && away !== null) {
+        round.push({ home, away })
+      }
+    }
+
+    rounds.push(round)
+
+    const last = arr.pop()!
+    arr.splice(1, 0, last)
+  }
+
+  const result: { championship_id: string; round_number: number; home_team_id: string; away_team_id: string }[] = []
+  let roundNum = 0
+
+  for (const round of rounds) {
+    roundNum++
+    for (const pairing of round) {
+      result.push({ championship_id: '', round_number: roundNum, home_team_id: pairing.home, away_team_id: pairing.away })
+    }
+  }
+
+  if (type === 'all') {
+    for (const round of rounds) {
+      roundNum++
+      for (const pairing of round) {
+        result.push({ championship_id: '', round_number: roundNum, home_team_id: pairing.away, away_team_id: pairing.home })
+      }
+    }
+  }
+
+  return result
 }
 
 const CATEGORY_LABELS: Record<string, string> = {

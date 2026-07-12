@@ -27,6 +27,14 @@ export const queryKeys = {
     expenses: (groupId: string) => ['finances', 'expenses', groupId],
     summary: (groupId: string) => ['finances', 'summary', groupId],
   },
+  championships: {
+    all: ['championships'],
+    list: (groupId: string) => ['championships', 'list', groupId],
+    detail: (id: string) => ['championships', 'detail', id],
+    teams: (id: string) => ['championships', 'teams', id],
+    rounds: (id: string) => ['championships', 'rounds', id],
+    standings: (id: string) => ['championships', 'standings', id],
+  },
   profiles: {
     detail: (profileId: string) => ['profiles', 'detail', profileId],
   },

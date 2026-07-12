@@ -16,6 +16,7 @@ import { ProfilePage } from './pages/profile/ProfilePage'
 import { MapPage } from './pages/map/MapPage'
 import { FinancePage } from './pages/finances/FinancePage'
 import { BetsHistoryPage } from './pages/bets/BetsHistoryPage'
+import { ChampionshipListPage, ChampionshipCreatePage, ChampionshipDetailPage } from './pages/championships/ChampionshipPages'
 
 const queryClient = new QueryClient()
 
@@ -48,6 +49,9 @@ export default function App() {
                 <Route path="/bets" element={<BetsHistoryPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/mapa" element={<MapPage />} />
+                <Route path="/groups/:id/campeonatos" element={<ChampionshipListPage />} />
+                <Route path="/groups/:id/campeonatos/new" element={<ChampionshipCreatePage />} />
+                <Route path="/campeonatos/:id" element={<ChampionshipDetailPage />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

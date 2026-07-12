@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useGroup } from '../../contexts/GroupContext'
 import { supabase } from '../../lib/supabase'
@@ -114,6 +114,12 @@ export function MatchDetailPage() {
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[match.status]}`}>
                 {MATCH_STATUS[match.status as keyof typeof MATCH_STATUS]}
               </span>
+              {match.championship_id && (
+                <Link to={`/campeonatos/${match.championship_id}`}
+                  className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors">
+                  <Trophy size={12} className="inline mr-1" />Campeonato
+                </Link>
+              )}
             </div>
             <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
               <Calendar size={24} className="text-green-600" />
@@ -889,9 +895,9 @@ function ManagePlayersPanel({ matchId, groupId, players, teams, isAdmin, onPlaye
   function PlayerRow({ player }: { player: MatchPlayer }) {
     return (
       <div key={player.id}
-        onClick={() => player.profile_id && onPlayerClick?.(player)}
-        className={`flex items-center justify-between p-2 rounded-lg ${player.profile_id ? 'cursor-pointer hover:bg-gray-100' : ''} bg-gray-50`}>
-        <div className="flex items-center gap-2 min-w-0">
+        className={`flex items-center justify-between p-2 rounded-lg bg-gray-50`}>
+        <div className="flex items-center gap-2 min-w-0 cursor-pointer"
+          onClick={() => player.profile_id && onPlayerClick?.(player)}>
           {player.guest_name ? (
             <div className="w-7 h-7 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-xs shrink-0">
               <UserPlus size={12} />

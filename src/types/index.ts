@@ -78,6 +78,7 @@ export interface Match {
   evaluation_closed: boolean
   created_by: string
   created_at: string
+  championship_id: string | null
 }
 
 export interface MatchConfirmation {
@@ -282,6 +283,62 @@ export const MARKET_TYPE_LABELS: Record<MarketType, string> = {
   EXACT_GOALS: 'Total de Gols',
   MOST_NUTMEGS: 'Mais Canetas',
   CLEAN_SHEET: 'Não Sofrer Gols',
+}
+
+export type ChampionshipStatus = 'DRAFT' | 'ACTIVE' | 'FINISHED'
+
+export interface Championship {
+  id: string
+  group_id: string
+  name: string
+  status: ChampionshipStatus
+  team_count: number
+  created_by: string
+  created_at: string
+  finished_at: string | null
+}
+
+export interface ChampionshipTeam {
+  id: string
+  championship_id: string
+  name: string
+  created_at: string
+  players?: ChampionshipTeamPlayer[]
+}
+
+export interface ChampionshipTeamPlayer {
+  id: string
+  championship_team_id: string
+  profile_id: string | null
+  guest_name: string | null
+  position: PlayerPosition | null
+  profile?: Profile | null
+}
+
+export interface ChampionshipRound {
+  id: string
+  championship_id: string
+  round_number: number
+  match_id: string
+  home_team_id: string
+  away_team_id: string
+  home_team?: ChampionshipTeam
+  away_team?: ChampionshipTeam
+  match?: Match
+}
+
+export interface ChampionshipStanding {
+  team_id: string
+  team_name: string
+  position: number
+  points: number
+  played: number
+  wins: number
+  draws: number
+  losses: number
+  goals_for: number
+  goals_against: number
+  goal_diff: number
 }
 
 export interface MatchMarket {
