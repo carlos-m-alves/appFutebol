@@ -198,7 +198,7 @@ describe('matchService', () => {
       const matches: Match[] = [
         { id: matchId, group_id: groupId, match_date: '2024-06-01', location: 'Campo',
           modality: 'SUICO', status: 'SCHEDULED', evaluation_open: false, evaluation_closed: false,
-          created_by: profileId, created_at: '2024-01-01', schedule_id: null },
+          created_by: profileId, created_at: '2024-01-01', schedule_id: null, championship_id: null },
       ]
       mockFrom.mockReturnValueOnce(mockChain({ data: matches }))
 
@@ -212,7 +212,7 @@ describe('matchService', () => {
       const match: Match = {
         id: matchId, group_id: groupId, match_date: '2024-06-01', location: 'Campo',
         modality: 'SUICO', status: 'SCHEDULED', evaluation_open: false, evaluation_closed: false,
-        created_by: profileId, created_at: '2024-01-01', schedule_id: null,
+        created_by: profileId, created_at: '2024-01-01', schedule_id: null, championship_id: null,
       }
       const chain = mockChain()
       chain.single.mockResolvedValueOnce({ data: match, error: null })

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { championshipService } from '../services/api'
 import { queryKeys } from './queryKeys'
+import type { PlayerPosition } from '../types'
 
 const STALE_TIMES = {
   list: 2 * 60 * 1000,
@@ -55,7 +56,7 @@ export function useCreateChampionship() {
       team_count: number
       teams: {
         name: string
-        players: { profile_id?: string; guest_name?: string; position?: string }[]
+        players: { profile_id?: string; guest_name?: string; position?: PlayerPosition }[]
       }[]
     }) => championshipService.create(params),
     onSuccess: (data) => {

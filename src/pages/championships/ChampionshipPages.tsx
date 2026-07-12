@@ -9,7 +9,7 @@ import { useChampionships, useChampionship, useChampionshipRounds, useChampionsh
 import { balanceTeams } from '../../services/teamBalancer'
 import { FifaErrorScreen } from '../../components/ui/FifaErrorScreen'
 import { supabase } from '../../lib/supabase'
-import type { ChampionshipStatus } from '../../types'
+import type { ChampionshipStatus, PlayerPosition } from '../../types'
 
 const STATUS_CONFIG: Record<ChampionshipStatus, { label: string; color: string }> = {
   DRAFT: { label: 'Rascunho', color: 'text-gray-400 bg-gray-500/20 border-gray-500/30' },
@@ -97,7 +97,7 @@ export function ChampionshipCreatePage() {
   const [name, setName] = useState('')
   const [teamCount, setTeamCount] = useState(2)
   const [divisionMode, setDivisionMode] = useState<'auto' | 'manual'>('manual')
-  const [teams, setTeams] = useState<{ name: string; players: { profile_id?: string; guest_name?: string; position?: string }[] }[]>([])
+  const [teams, setTeams] = useState<{ name: string; players: { profile_id?: string; guest_name?: string; position?: PlayerPosition }[] }[]>([])
   const [availablePlayers, setAvailablePlayers] = useState<{ id: string; name: string }[]>([])
   const [loadingPlayers, setLoadingPlayers] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -125,7 +125,7 @@ export function ChampionshipCreatePage() {
   function resetTeams() {
     setTeams(Array.from({ length: teamCount }, (_, i) => ({
       name: `Time ${i + 1}`,
-      players: [] as { profile_id?: string; guest_name?: string; position?: string }[],
+      players: [] as { profile_id?: string; guest_name?: string; position?: PlayerPosition }[],
     })))
   }
 

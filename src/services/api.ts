@@ -1246,7 +1246,7 @@ export const championshipService = {
     if (!profile) throw new Error('Perfil não encontrado')
 
     const matchInserts = roundDates.map(rd => {
-      const round = championship.rounds.find(r => r.round_number === rd.round_number)
+      const round = championship.rounds.find((r: any) => r.round_number === rd.round_number)
       if (!round) throw new Error(`Rodada ${rd.round_number} não encontrada`)
       const matchDate = rd.match_date || new Date().toISOString()
       const location = rd.location?.trim() || 'A definir'
@@ -1271,7 +1271,6 @@ export const championshipService = {
 
     for (let i = 0; i < createdMatches!.length; i++) {
       const m = createdMatches![i]
-      const rd = roundDates[i]
       const round = roundsSorted[i]
 
       const { error: err1 } = await supabase
@@ -1290,8 +1289,8 @@ export const championshipService = {
     for (const round of roundsSorted) {
       if (!round.match_id) continue
 
-      const homeTeam = championship.teams.find(t => t.id === round.home_team_id)
-      const awayTeam = championship.teams.find(t => t.id === round.away_team_id)
+      const homeTeam = championship.teams.find((t: any) => t.id === round.home_team_id)
+      const awayTeam = championship.teams.find((t: any) => t.id === round.away_team_id)
 
       const { data: matchTeams } = await supabase
         .from('teams')
@@ -1305,17 +1304,17 @@ export const championshipService = {
         const homeMatchTeam = matchTeams[0]
         const awayMatchTeam = matchTeams[1]
 
-        const homePlayers = (homeTeam?.players || []).filter(p => p.profile_id)
-        const awayPlayers = (awayTeam?.players || []).filter(p => p.profile_id)
+        const homePlayers = (homeTeam?.players || []).filter((p: any) => p.profile_id)
+        const awayPlayers = (awayTeam?.players || []).filter((p: any) => p.profile_id)
 
         const allMatchPlayers = [
-          ...homePlayers.map(p => ({
+          ...homePlayers.map((p: any) => ({
             match_id: round.match_id!,
             profile_id: p.profile_id,
             team_id: homeMatchTeam.id,
             goals: 0, assists: 0, own_goals: 0, nutmeg_given: 0, nutmeg_done: 0, no_show: false,
           })),
-          ...awayPlayers.map(p => ({
+          ...awayPlayers.map((p: any) => ({
             match_id: round.match_id!,
             profile_id: p.profile_id,
             team_id: awayMatchTeam.id,
@@ -1357,7 +1356,7 @@ export const championshipService = {
       .eq('championship_id', id)
     if (deleteError) throw deleteError
 
-    const teamIds = championship.teams.map(t => t.id)
+    const teamIds = championship.teams.map((t: any) => t.id)
     const rawRounds = generateRoundRobin(teamIds, type)
     const rounds = rawRounds.map(r => ({ ...r, championship_id: championship.id }))
 
